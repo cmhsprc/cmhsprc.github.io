@@ -22,7 +22,7 @@ const RESOURCE_MIME_TYPES = {
 };
 const RESOURCE_ACCEPT = ".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.csv,.zip,.jpg,.jpeg,.png,.webp";
 const COMMITTEE_POSITIONS = ["President", "Vice President", "General Secretary", "Joint Secretary", "Treasurer", "Organizing Secretary", "IT Secretary", "Publicity Secretary", "Delegate", "Trainer", "Assistant Trainer", "Executive Member", "Volunteer Coordinator", "Event Volunteer", "Technical Volunteer", "Content Volunteer"];
-const state = { client: null, userId: "", isCommitteeManager: false, committeePositions: [], students: [], batches: [], memberships: [], sessions: [], attendance: [], resources: [], resourcesError: null, websitePages: [], websiteEvents: [], planUpdatedAt: null, page: "overview",
+const state = { client: null, userId: "", isCommitteeManager: false, committeePositions: [], formerCommitteeMembers: [], students: [], batches: [], memberships: [], sessions: [], attendance: [], resources: [], resourcesError: null, websitePages: [], websiteEvents: [], planUpdatedAt: null, page: "overview",
   currentStudent: null, editingId: null, selectedSessionId: "", attendanceFilter: "All", selectedBatchId: "", pendingImport: [], pendingImportAttendance: [], filteredStudents: [] };
 const $ = (selector) => document.querySelector(selector);
 
@@ -106,7 +106,7 @@ function setPage(page) {
   const titles = { overview: "Overview", students: "Students", committee: "Committee & volunteers", batches: "Batches", resources: "Blog & materials", website: "Main website", attendance: "Attendance", reports: "Reports", data: "Data quality", plan: "Admin plan", activity: "Activity log", backup: "Import & backup" };
   $("#page-title").textContent = titles[page] || "Overview";
   if (page === "students") renderStudents();
-  if (page === "committee") renderCommittee();
+  if (page === "committee") { renderCommittee(); renderFormerCommittee(); }
   if (page === "batches") renderBatches();
   if (page === "resources") renderResources();
   if (page === "website") loadWebsiteData();
@@ -136,8 +136,7 @@ async function loadData() {
     state.client.from("attendance_sessions").select("*").order("session_date", { ascending: false }),
     state.client.from("attendance_records").select("*"),
     state.client.from("batch_resources").select("*").order("created_at", { ascending: false }),
-    state.client.rpc("is_committee_role_manager"),
-    state.client.from("committee_positions").select("*")
+    state.client.rpc("is_committee_role_manager")
   ]);
   const names = ["students", "batches", "batch memberships", "attendance sessions", "attendance"];
   for (let i = 0; i < names.length; i += 1) if (results[i].error) throw new Error(names[i] + ": " + results[i].error.message);
@@ -149,13 +148,24 @@ async function loadData() {
   state.resources = results[5].error ? [] : (results[5].data || []);
   state.resourcesError = results[5].error || null;
   if (results[6].error) throw new Error("ADM001 account link: " + results[6].error.message + ". Run the updated supabase/schema.sql after confirming ADM001's email matches a Supabase Auth login.");
-  if (results[7].error) throw new Error("Committee positions: " + results[7].error.message + ". Run the updated supabase/schema.sql.");
   state.isCommitteeManager = results[6].data === true;
-  state.committeePositions = state.isCommitteeManager ? (results[7].data || []) : [];
+  if (state.isCommitteeManager) {
+    const committeeData = await Promise.all([
+      state.client.from("committee_positions").select("*"),
+      state.client.from("former_committee_members").select("*").order("term_label", { ascending: false }).order("full_name")
+    ]);
+    if (committeeData[0].error) throw new Error("Committee positions: " + committeeData[0].error.message + ". Run the updated supabase/schema.sql.");
+    if (committeeData[1].error) throw new Error("Former committee archive: " + committeeData[1].error.message + ". Run the updated supabase/schema.sql.");
+    state.committeePositions = committeeData[0].data || [];
+    state.formerCommitteeMembers = committeeData[1].data || [];
+  } else {
+    state.committeePositions = [];
+    state.formerCommitteeMembers = [];
+  }
   $("#committee-nav-item").hidden = !state.isCommitteeManager;
   $("#activity-nav-item").hidden = !state.isCommitteeManager;
   if (!state.batches.some((batch) => batch.id === state.selectedBatchId)) state.selectedBatchId = state.batches[0] ? state.batches[0].id : "";
-  renderDashboard(); renderStudents(); renderCommittee(); renderBatches(); renderResources(); renderAttendance(); renderReports(); renderQuality();
+  renderDashboard(); renderStudents(); renderCommittee(); renderFormerCommittee(); renderBatches(); renderResources(); renderAttendance(); renderReports(); renderQuality();
 }
 async function loadAdminPlan() {
   const errorEl = $("#admin-plan-error"); if (!errorEl) return;
@@ -231,7 +241,7 @@ function showApp(user) {
 function showLogin() {
   state.userId = ""; state.isCommitteeManager = false; state.committeePositions = []; $("#committee-nav-item").hidden = true; $("#activity-nav-item").hidden = true; state.planUpdatedAt = null;
   state.students = []; state.batches = []; state.memberships = []; state.sessions = []; state.attendance = []; state.resources = []; state.resourcesError = null; state.websitePages = []; state.websiteEvents = []; state.filteredStudents = []; state.selectedBatchId = "";
-  $("#committee-table-body").innerHTML = ""; $("#activity-table-body").innerHTML = ""; $("#admin-plan-content").value = ""; state.page = "overview";
+  $("#committee-table-body").innerHTML = ""; $("#former-committee-table-body").innerHTML = ""; $("#activity-table-body").innerHTML = ""; $("#admin-plan-content").value = ""; state.formerCommitteeMembers = []; if ($("#former-committee-form")) resetFormerCommitteeForm(); state.page = "overview";
   document.querySelectorAll(".page-section").forEach((section) => { section.hidden = section.dataset.section !== "overview"; });
   document.querySelectorAll(".nav-item[data-page]").forEach((button) => button.classList.toggle("active", button.dataset.page === "overview"));
   $("#page-title").textContent = "Overview";
@@ -470,12 +480,85 @@ function renderCommittee() {
     if (roles.admin) labels.push('<span class="committee-role admin">Administrator · ADM</span>');
     if (roles.volunteer) labels.push('<span class="committee-role volunteer">Helping volunteer · EM</span>');
     const positionOptions = ['<option value="">No specific position</option>'].concat(COMMITTEE_POSITIONS.map((position) => '<option value="' + escapeHtml(position) + '"' + (position === currentPosition ? " selected" : "") + ">" + escapeHtml(position) + "</option>"));
-    const positionControl = '<div class="committee-position-control"><select data-position-for="' + encodeURIComponent(student.student_id) + '" aria-label="Specific position for ' + escapeHtml(student.full_name) + '">' + positionOptions.join("") + '</select><button class="table-action" type="button" data-save-position="' + encodeURIComponent(student.student_id) + '">Save</button></div>';
+    const photoPreview = assignment && assignment.photo_path
+      ? '<img class="committee-photo-preview" src="' + escapeHtml(publicResourceUrl(assignment.photo_path)) + '" alt="Current portrait for ' + escapeHtml(student.full_name) + '">'
+      : '<span class="committee-photo-empty">No portrait</span>';
+    const photoControl = '<div class="committee-photo-control">' + photoPreview +
+      '<label class="committee-photo-upload">Upload portrait<input type="file" accept="image/jpeg,image/png,image/webp" data-photo-for="' + encodeURIComponent(student.student_id) + '" aria-label="Upload portrait for ' + escapeHtml(student.full_name) + '"></label>' +
+      (assignment && assignment.photo_path ? '<button class="table-action" type="button" data-clear-photo="' + encodeURIComponent(student.student_id) + '">Remove photo</button>' : '') + '</div>';
+    const positionControl = '<div class="committee-position-control"><select data-position-for="' + encodeURIComponent(student.student_id) + '" aria-label="Specific position for ' + escapeHtml(student.full_name) + '">' + positionOptions.join("") + '</select><button class="table-action" type="button" data-save-position="' + encodeURIComponent(student.student_id) + '">Save</button></div>' + photoControl;
     return "<tr><td>" + labels.join(" ") + "</td><td><span class=\"id-badge\">" + escapeHtml(student.student_id) + "</span></td><td><strong>" + escapeHtml(displayValue(student.full_name)) +
       "</strong></td><td>" + escapeHtml(displayValue(student.class)) + " / " + escapeHtml(displayValue(student.section)) + "</td><td>" + positionControl + "</td><td>" + phoneCell(student.student_contact_number) +
       "</td><td>" + escapeHtml(displayValue(student.email_address)) + "</td><td>" + escapeHtml(batchLabelsForStudent(student.student_id) || "—") +
       '</td><td><button class="table-action" type="button" data-committee-view="' + encodeURIComponent(student.student_id) + '">View</button></td></tr>';
   }).join("");
+}
+$("#committee-table-body").addEventListener("change", (event) => {
+  const input = event.target.closest("[data-photo-for]");
+  if (!input || !input.files || !input.files[0]) return;
+  uploadCommitteePhoto(input, input.files[0]);
+});
+$("#committee-table-body").addEventListener("click", async (event) => {
+  const remove = event.target.closest("[data-clear-photo]");
+  if (!remove) return;
+  if (!state.isCommitteeManager) { showToast("Only the ADM001-linked account can manage committee portraits.", "error"); return; }
+  const studentId = decodeURIComponent(remove.dataset.clearPhoto);
+  const assignment = state.committeePositions.find((item) => item.student_id === studentId);
+  if (!assignment || !assignment.photo_path) return;
+  remove.disabled = true;
+  const result = assignment.position
+    ? await state.client.from("committee_positions").update({ photo_path: null, updated_by: state.userId }).eq("student_id", studentId)
+    : await state.client.from("committee_positions").delete().eq("student_id", studentId);
+  if (result.error) { remove.disabled = false; showToast("Portrait could not be removed: " + result.error.message, "error"); return; }
+  const deleted = await state.client.storage.from(PUBLIC_RESOURCE_BUCKET).remove([assignment.photo_path]);
+  if (deleted.error) showToast("Portrait removed from the page, but its stored file could not be deleted: " + deleted.error.message, "error");
+  const refreshed = await state.client.from("committee_positions").select("*");
+  state.committeePositions = refreshed.data || [];
+  renderCommittee();
+  showToast("Portrait removed.", "success");
+});
+async function uploadCommitteePhoto(input, file) {
+  if (!state.isCommitteeManager) { showToast("Only the ADM001-linked account can manage committee portraits.", "error"); return; }
+  const extension = String(file.name.split(".").pop() || "").toLowerCase();
+  const mimeByExtension = { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp" };
+  if (!mimeByExtension[extension] || file.type !== mimeByExtension[extension] || file.size <= 0 || file.size > 5 * 1024 * 1024) {
+    input.value = "";
+    showToast("Choose a JPG, PNG, or WebP portrait smaller than 5 MB.", "error");
+    return;
+  }
+  const studentId = decodeURIComponent(input.dataset.photoFor);
+  const previous = state.committeePositions.find((item) => item.student_id === studentId);
+  const safeId = studentId.replace(/[^a-zA-Z0-9_-]/g, "-");
+  const objectPath = "team-photos/" + safeId + "/" + createObjectToken() + "." + extension;
+  input.disabled = true;
+  try {
+    const uploaded = await state.client.storage.from(PUBLIC_RESOURCE_BUCKET).upload(objectPath, file, {
+      contentType: mimeByExtension[extension], cacheControl: "3600", upsert: false
+    });
+    if (uploaded.error) throw new Error(uploaded.error.message);
+    const saved = await state.client.from("committee_positions").upsert({
+      student_id: studentId,
+      position: previous ? previous.position : null,
+      photo_path: objectPath,
+      updated_by: state.userId
+    }, { onConflict: "student_id" });
+    if (saved.error) {
+      await state.client.storage.from(PUBLIC_RESOURCE_BUCKET).remove([objectPath]);
+      throw new Error(saved.error.message);
+    }
+    if (previous && previous.photo_path) {
+      const removed = await state.client.storage.from(PUBLIC_RESOURCE_BUCKET).remove([previous.photo_path]);
+      if (removed.error) showToast("New portrait saved, but the old file could not be deleted: " + removed.error.message, "error");
+    }
+    const refreshed = await state.client.from("committee_positions").select("*");
+    if (refreshed.error) throw new Error(refreshed.error.message);
+    state.committeePositions = refreshed.data || [];
+    renderCommittee();
+    showToast("Public portrait uploaded.", "success");
+  } catch (error) {
+    showToast("Portrait upload failed: " + (error.message || "unknown error"), "error");
+    input.disabled = false;
+  }
 }
 $("#committee-search").addEventListener("input", renderCommittee);
 $("#committee-role-filter").addEventListener("change", renderCommittee);
@@ -490,8 +573,9 @@ async function saveCommitteePosition(button) {
   if (!state.isCommitteeManager) { showToast("Only the ADM001-linked account can assign committee positions.", "error"); return; }
   const studentId = decodeURIComponent(button.dataset.savePosition), select = button.parentElement.querySelector("select"), position = select.value;
   button.disabled = true;
-  const result = position
-    ? await state.client.from("committee_positions").upsert({ student_id: studentId, position, updated_by: state.userId }, { onConflict: "student_id" })
+  const assignment = state.committeePositions.find((item) => item.student_id === studentId);
+  const result = position || (assignment && assignment.photo_path)
+    ? await state.client.from("committee_positions").upsert({ student_id: studentId, position: position || null, photo_path: assignment ? assignment.photo_path : null, updated_by: state.userId }, { onConflict: "student_id" })
     : await state.client.from("committee_positions").delete().eq("student_id", studentId);
   button.disabled = false;
   if (result.error) { showToast("Position could not be saved: " + result.error.message, "error"); return; }
@@ -512,6 +596,139 @@ $("#export-committee-csv").addEventListener("click", () => {
   }).join("\r\n");
   downloadFile("committee-volunteers-" + new Date().toISOString().slice(0, 10) + ".csv", csv, "text/csv;charset=utf-8");
 });
+
+function renderFormerCommittee() {
+  const body = $("#former-committee-table-body");
+  if (!body || !state.isCommitteeManager) return;
+  const rows = state.formerCommitteeMembers.slice().sort((a, b) =>
+    String(b.term_label).localeCompare(String(a.term_label), undefined, { numeric: true }) ||
+    String(a.full_name).localeCompare(String(b.full_name))
+  );
+  $("#former-committee-count").textContent = rows.length + (rows.length === 1 ? " member" : " members");
+  $("#former-committee-empty").hidden = rows.length > 0;
+  $("#former-committee-terms").innerHTML = [...new Set(rows.map((item) => item.term_label))]
+    .map((term) => '<option value="' + escapeHtml(term) + '"></option>').join("");
+  body.innerHTML = rows.map((member) => {
+    const portrait = member.photo_path
+      ? '<img class="former-photo-thumb" src="' + escapeHtml(publicResourceUrl(member.photo_path)) + '" alt="Portrait of ' + escapeHtml(member.full_name) + '">'
+      : "—";
+    return "<tr><td>" + escapeHtml(member.term_label) + "</td><td><strong>" + escapeHtml(member.full_name) +
+      "</strong></td><td>" + escapeHtml(member.position) + "</td><td>" + portrait +
+      '</td><td><div class="former-actions"><button class="table-action" type="button" data-edit-former-member="' + member.id +
+      '">Edit</button><button class="table-action delete-former-member" type="button" data-delete-former-member="' + member.id +
+      '">Delete</button></div></td></tr>';
+  }).join("");
+}
+function resetFormerCommitteeForm() {
+  $("#former-committee-form").reset();
+  $("#former-member-id").value = "";
+  $("#former-member-current-photo").hidden = true;
+  $("#former-member-error").hidden = true;
+  $("#save-former-member").textContent = "Add former member";
+  $("#cancel-former-member").hidden = true;
+}
+function editFormerCommitteeMember(memberId) {
+  const member = state.formerCommitteeMembers.find((item) => item.id === memberId);
+  if (!member) return;
+  $("#former-member-id").value = member.id;
+  $("#former-member-term").value = member.term_label;
+  $("#former-member-name").value = member.full_name;
+  $("#former-member-position").value = member.position;
+  $("#former-member-photo").value = "";
+  $("#save-former-member").textContent = "Save changes";
+  $("#cancel-former-member").hidden = false;
+  const currentPhoto = $("#former-member-current-photo");
+  if (member.photo_path) {
+    currentPhoto.innerHTML = 'Current portrait: <a href="' + escapeHtml(publicResourceUrl(member.photo_path)) + '" target="_blank" rel="noopener noreferrer">View portrait</a>. Choose another file to replace it.';
+    currentPhoto.hidden = false;
+  } else currentPhoto.hidden = true;
+  $("#former-member-error").hidden = true;
+  $("#former-committee-form").scrollIntoView({ behavior: "smooth", block: "center" });
+}
+$("#cancel-former-member").addEventListener("click", resetFormerCommitteeForm);
+$("#former-committee-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const errorEl = $("#former-member-error");
+  errorEl.hidden = true;
+  if (!state.isCommitteeManager) { errorEl.textContent = "Only the ADM001-linked account can edit former committees."; errorEl.hidden = false; return; }
+  const term = $("#former-member-term").value.trim();
+  const fullName = $("#former-member-name").value.trim();
+  const position = $("#former-member-position").value.trim();
+  const file = $("#former-member-photo").files && $("#former-member-photo").files[0];
+  const memberId = $("#former-member-id").value;
+  const previous = memberId ? state.formerCommitteeMembers.find((item) => item.id === memberId) : null;
+  if (!term || !fullName || !position) { errorEl.textContent = "Enter a committee term, member name, and position."; errorEl.hidden = false; return; }
+  let fileInfo = null;
+  if (file) {
+    const extension = String(file.name.split(".").pop() || "").toLowerCase();
+    const mimeByExtension = { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp" };
+    if (!mimeByExtension[extension] || file.type !== mimeByExtension[extension] || file.size <= 0 || file.size > 5 * 1024 * 1024) {
+      errorEl.textContent = "Choose a JPG, PNG, or WebP portrait smaller than 5 MB.";
+      errorEl.hidden = false;
+      return;
+    }
+    fileInfo = { extension, contentType: mimeByExtension[extension] };
+  }
+  const submit = $("#save-former-member");
+  submit.disabled = true;
+  let newPath = null;
+  let saved = false;
+  try {
+    if (file && fileInfo) {
+      newPath = "former-team-photos/" + createObjectToken() + "." + fileInfo.extension;
+      const upload = await state.client.storage.from(PUBLIC_RESOURCE_BUCKET).upload(newPath, file, {
+        contentType: fileInfo.contentType, cacheControl: "3600", upsert: false
+      });
+      if (upload.error) throw new Error("Portrait upload failed: " + upload.error.message);
+    }
+    const payload = {
+      term_label: term,
+      full_name: fullName,
+      position,
+      photo_path: newPath || (previous ? previous.photo_path : null),
+      updated_by: state.userId
+    };
+    const result = previous
+      ? await state.client.from("former_committee_members").update(payload).eq("id", previous.id).select().single()
+      : await state.client.from("former_committee_members").insert(payload).select().single();
+    if (result.error) throw new Error("Could not save the former member: " + result.error.message);
+    saved = true;
+    if (newPath && previous && previous.photo_path) {
+      const removed = await state.client.storage.from(PUBLIC_RESOURCE_BUCKET).remove([previous.photo_path]);
+      if (removed.error) showToast("Member saved, but the old portrait file could not be deleted: " + removed.error.message, "error");
+    }
+    state.formerCommitteeMembers = previous
+      ? state.formerCommitteeMembers.map((item) => item.id === previous.id ? result.data : item)
+      : [...state.formerCommitteeMembers, result.data];
+    resetFormerCommitteeForm();
+    renderFormerCommittee();
+    showToast(previous ? "Former committee member updated." : "Former committee member added.", "success");
+  } catch (error) {
+    if (newPath && !saved) await state.client.storage.from(PUBLIC_RESOURCE_BUCKET).remove([newPath]);
+    errorEl.textContent = error.message || "Could not save the former committee member.";
+    errorEl.hidden = false;
+  } finally { submit.disabled = false; }
+});
+$("#former-committee-table-body").addEventListener("click", async (event) => {
+  const editButton = event.target.closest("[data-edit-former-member]");
+  if (editButton) { editFormerCommitteeMember(editButton.dataset.editFormerMember); return; }
+  const deleteButton = event.target.closest("[data-delete-former-member]");
+  if (!deleteButton) return;
+  const member = state.formerCommitteeMembers.find((item) => item.id === deleteButton.dataset.deleteFormerMember);
+  if (!member || !window.confirm("Delete " + member.full_name + " from the " + member.term_label + " former committee?")) return;
+  deleteButton.disabled = true;
+  const result = await state.client.from("former_committee_members").delete().eq("id", member.id);
+  if (result.error) { deleteButton.disabled = false; showToast("Could not delete the former member: " + result.error.message, "error"); return; }
+  if (member.photo_path) {
+    const removed = await state.client.storage.from(PUBLIC_RESOURCE_BUCKET).remove([member.photo_path]);
+    if (removed.error) showToast("Member removed, but the portrait file could not be deleted: " + removed.error.message, "error");
+  }
+  state.formerCommitteeMembers = state.formerCommitteeMembers.filter((item) => item.id !== member.id);
+  if ($("#former-member-id").value === member.id) resetFormerCommitteeForm();
+  renderFormerCommittee();
+  showToast("Former committee member deleted.", "success");
+});
+
 $("#student-search").addEventListener("input", renderStudents);
 $("#apply-filters").addEventListener("click", renderStudents);
 $("#clear-filters").addEventListener("click", () => {

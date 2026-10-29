@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#07111f">
-  <meta name="description" content="Meet the delegates, administrators, trainers, and assistant trainers of the CMHS Programming and Robotics Club.">
-  <title>Club Team | CMHS Programming & Robotics Club</title>
+  <meta name="description" content="Meet current executives and explore former committees of the CMHS Programming and Robotics Club.">
+  <title>Club Executives | CMHS Programming & Robotics Club</title>
   <link rel="icon" href="./assets/brand/cmhs-prc-profile.svg" type="image/svg+xml"><link rel="alternate icon" href="./assets/brand/cmhs-prc-profile.png" type="image/png">
   <link rel="stylesheet" href="./portal.css">
   <link rel="stylesheet" href="./team.css">
@@ -18,31 +18,45 @@
     <nav><a href="./">Home</a><a href="./about.html">About Us</a><a href="./events.html">Events</a><a href="./blog.html">Blog</a><a href="./team.html" aria-current="page">Executives</a><a href="./join.html">Join Us</a></nav>
   </header>
   <main class="page-wrap team-page">
-    <section class="hero">
-      <p class="eyebrow">OUR PEOPLE</p>
-      <h1>Meet the <span>club executives.</span></h1>
-      <p>Meet the delegates, administrators, trainers, and assistant trainers who help lead club activities.</p>
+    <section class="hero team-hero">
+      <p class="eyebrow">THE PEOPLE BEHIND THE CLUB</p>
+      <h1>Meet our <span>executives.</span></h1>
+      <p>Students who help organize the club, support its members, and lead our learning activities.</p>
     </section>
     <p id="team-status" class="status" role="status" aria-live="polite"></p>
-    <div class="team-grid">
-      <section class="team-card" aria-labelledby="admins-title">
-        <div class="team-card-heading"><div><p class="eyebrow">CLUB LEADERSHIP</p><h2 id="admins-title">Executive board</h2></div><span id="admins-count" class="count">—</span></div>
-        <ul id="admins-list" class="team-list"><li class="team-empty">Loading…</li></ul>
+    <div class="team-tabs" role="tablist" aria-label="Executive committees">
+      <button class="team-tab is-selected" id="current-team-tab" type="button" role="tab" aria-selected="true" aria-controls="current-team-panel" data-team-tab="current">Current</button>
+      <button class="team-tab" id="former-team-tab" type="button" role="tab" aria-selected="false" aria-controls="former-team-panel" data-team-tab="former">Former</button>
+    </div>
+    <div id="current-team-panel" class="team-view-panel" role="tabpanel" aria-labelledby="current-team-tab">
+      <section class="team-section team-leadership" aria-labelledby="admins-title">
+        <div class="team-section-heading"><div><p class="eyebrow">CLUB LEADERSHIP</p><h2 id="admins-title">Executive board</h2><p>Leading the club and coordinating its work.</p></div><span id="admins-count" class="count">—</span></div>
+        <div id="admins-list" class="team-grid executive-grid"><p class="team-empty">Loading executives…</p></div>
       </section>
-      <section class="team-card" aria-labelledby="delegates-title">
-        <div class="team-card-heading"><div><p class="eyebrow">REPRESENTATIVES</p><h2 id="delegates-title">Delegates</h2></div><span id="delegates-count" class="count">—</span></div>
-        <ul id="delegates-list" class="team-list"><li class="team-empty">Loading…</li></ul>
-      </section>
-      <section class="team-card" aria-labelledby="trainers-title">
-        <div class="team-card-heading"><div><p class="eyebrow">LEARNING TEAM</p><h2 id="trainers-title">Trainers</h2></div><span id="trainers-count" class="count">—</span></div>
-        <ul id="trainers-list" class="team-list"><li class="team-empty">Loading…</li></ul>
-      </section>
-      <section class="team-card" aria-labelledby="assistant-trainers-title">
-        <div class="team-card-heading"><div><p class="eyebrow">LEARNING TEAM</p><h2 id="assistant-trainers-title">Assistant Trainers</h2></div><span id="assistant-trainers-count" class="count">—</span></div>
-        <ul id="assistant-trainers-list" class="team-list"><li class="team-empty">Loading…</li></ul>
+      <div class="team-secondary-grid">
+        <section class="team-section" aria-labelledby="delegates-title">
+          <div class="team-section-heading"><div><p class="eyebrow">STUDENT REPRESENTATIVES</p><h2 id="delegates-title">Delegates</h2><p>Representing students across the club.</p></div><span id="delegates-count" class="count">—</span></div>
+          <div id="delegates-list" class="team-grid"><p class="team-empty">Loading delegates…</p></div>
+        </section>
+        <section class="team-section" aria-labelledby="trainers-title">
+          <div class="team-section-heading"><div><p class="eyebrow">LEARNING TEAM</p><h2 id="trainers-title">Trainers</h2><p>Helping members learn programming and robotics.</p></div><span id="trainers-count" class="count">—</span></div>
+          <div id="trainers-list" class="team-grid"><p class="team-empty">Loading trainers…</p></div>
+        </section>
+        <section class="team-section team-assistant-section" aria-labelledby="assistant-trainers-title">
+          <div class="team-section-heading"><div><p class="eyebrow">LEARNING TEAM</p><h2 id="assistant-trainers-title">Assistant trainers</h2><p>Supporting classes and hands-on sessions.</p></div><span id="assistant-trainers-count" class="count">—</span></div>
+          <div id="assistant-trainers-list" class="team-grid"><p class="team-empty">Loading assistant trainers…</p></div>
+        </section>
+      </div>
+    </div>
+    <div id="former-team-panel" class="team-view-panel" role="tabpanel" aria-labelledby="former-team-tab" hidden>
+      <section class="team-section former-committees-section" aria-labelledby="former-committees-title">
+        <div class="team-section-heading"><div><p class="eyebrow">PAST LEADERSHIP</p><h2 id="former-committees-title">Former committees</h2><p>Choose a term to view its members.</p></div></div>
+        <div id="former-committee-terms" class="former-term-selector" role="group" aria-label="Former committee terms"></div>
+        <div class="former-active-heading"><h3 id="former-selected-term"></h3><span id="former-selected-count"></span></div>
+        <div id="former-committees-list" class="team-grid former-term-grid"><p class="team-empty">Loading former committees…</p></div>
       </section>
     </div>
-    <p class="team-privacy-note">This page shows names and public-facing roles only. Student IDs and contact details are not displayed.</p>
+    <p class="team-privacy-note">Only names, public roles, and portraits appear here. Student IDs and contact details stay private.</p>
   </main>
   <footer><span>Cumilla Modern High School Programming And Robotics Club</span><span><a href="./">Home</a></span></footer>
   <script type="module" src="./team.js"></script>

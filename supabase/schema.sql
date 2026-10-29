@@ -45,16 +45,34 @@ create index if not exists batch_students_student_idx on public.batch_students (
 -- is the only account allowed to change these assignments.
 create table if not exists public.committee_positions (
   student_id text primary key references public.students(student_id) on delete cascade,
-  position text not null,
+  position text,
+  photo_path text,
   updated_at timestamptz not null default now(),
   updated_by uuid references auth.users(id)
 );
+-- Existing installations gain optional positions and public team portraits.
+alter table public.committee_positions alter column position drop not null;
+alter table public.committee_positions add column if not exists photo_path text;
 alter table public.committee_positions drop constraint if exists committee_positions_position_check;
 alter table public.committee_positions add constraint committee_positions_position_check check (position in (
   'President', 'Vice President', 'General Secretary', 'Joint Secretary', 'Treasurer',
   'Organizing Secretary', 'IT Secretary', 'Publicity Secretary', 'Delegate', 'Trainer', 'Assistant Trainer',
   'Executive Member', 'Volunteer Coordinator', 'Event Volunteer', 'Technical Volunteer', 'Content Volunteer'
 ));
+
+-- Former committees are a public historical archive, separate from current student records.
+create table if not exists public.former_committee_members (
+  id uuid primary key default gen_random_uuid(),
+  term_label text not null check (char_length(trim(term_label)) between 1 and 80),
+  full_name text not null check (char_length(trim(full_name)) between 1 and 160),
+  position text not null check (char_length(trim(position)) between 1 and 120),
+  photo_path text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  updated_by uuid references auth.users(id)
+);
+create index if not exists former_committee_term_idx
+  on public.former_committee_members (term_label desc, position, full_name);
 
 -- Private authorization link, synced from the email saved on student ADM001
 -- to the matching Supabase Auth account when this schema runs.
@@ -411,11 +429,15 @@ for each row execute function public.set_updated_at();
 drop trigger if exists batch_resources_set_updated_at on public.batch_resources;
 create trigger batch_resources_set_updated_at before update on public.batch_resources
 for each row execute function public.set_updated_at();
+drop trigger if exists former_committee_members_set_updated_at on public.former_committee_members;
+create trigger former_committee_members_set_updated_at before update on public.former_committee_members
+for each row execute function public.set_updated_at();
 
 alter table public.students enable row level security;
 alter table public.batches enable row level security;
 alter table public.batch_students enable row level security;
 alter table public.committee_positions enable row level security;
+alter table public.former_committee_members enable row level security;
 alter table public.batch_resources enable row level security;
 alter table public.attendance_sessions enable row level security;
 alter table public.attendance_records enable row level security;
@@ -423,6 +445,7 @@ revoke all on public.students from anon, authenticated;
 revoke all on public.batches from anon, authenticated;
 revoke all on public.batch_students from anon, authenticated;
 revoke all on public.committee_positions from anon, authenticated;
+revoke all on public.former_committee_members from anon, authenticated;
 revoke all on public.batch_resources from anon, authenticated;
 revoke all on public.attendance_sessions from anon, authenticated;
 revoke all on public.attendance_records from anon, authenticated;
@@ -430,6 +453,7 @@ grant select, insert, update, delete on public.students to authenticated;
 grant select, insert, update, delete on public.batches to authenticated;
 grant select, insert, update, delete on public.batch_students to authenticated;
 grant select, insert, update, delete on public.committee_positions to authenticated;
+grant select, insert, update, delete on public.former_committee_members to authenticated;
 grant select, insert, update, delete on public.batch_resources to authenticated;
 grant usage, select on sequence public.batches_batch_number_seq to authenticated;
 revoke all on sequence public.batches_batch_number_seq from anon;
@@ -450,6 +474,9 @@ create policy "ADM001 reads committee positions" on public.committee_positions f
 using (public.is_committee_role_manager());
 drop policy if exists "ADM001 manages committee positions" on public.committee_positions;
 create policy "ADM001 manages committee positions" on public.committee_positions for all to authenticated
+using (public.is_committee_role_manager()) with check (public.is_committee_role_manager());
+drop policy if exists "ADM001 manages former committee" on public.former_committee_members;
+create policy "ADM001 manages former committee" on public.former_committee_members for all to authenticated
 using (public.is_committee_role_manager()) with check (public.is_committee_role_manager());
 drop policy if exists "Admins manage batch resources" on public.batch_resources;
 create policy "Admins manage batch resources" on public.batch_resources for all to authenticated
@@ -609,14 +636,15 @@ create or replace function public.get_public_club_team()
 returns table (
   team_role text,
   full_name text,
-  position_title text
+  position_title text,
+  photo_path text
 )
 language sql
 stable
 security definer
 set search_path = ''
 as $body$
-  select 'Delegate'::text, student.full_name, cp.position
+  select 'Delegate'::text, student.full_name, cp.position, cp.photo_path
   from public.students as student
   join public.committee_positions as cp
     on cp.student_id = student.student_id
@@ -625,7 +653,7 @@ as $body$
   union all
 
   select 'Administrator (ADM)'::text, student.full_name,
-         coalesce(cp.position, 'Administrator (ADM)')::text
+         coalesce(cp.position, 'Administrator (ADM)')::text, cp.photo_path
   from public.students as student
   left join public.committee_positions as cp
     on cp.student_id = student.student_id
@@ -633,7 +661,7 @@ as $body$
 
   union all
 
-  select 'Trainer (EM)'::text, student.full_name, cp.position
+  select 'Trainer (EM)'::text, student.full_name, cp.position, cp.photo_path
   from public.students as student
   join public.committee_positions as cp
     on cp.student_id = student.student_id
@@ -642,7 +670,7 @@ as $body$
 
   union all
 
-  select 'Assistant Trainer (EM)'::text, student.full_name, cp.position
+  select 'Assistant Trainer (EM)'::text, student.full_name, cp.position, cp.photo_path
   from public.students as student
   join public.committee_positions as cp
     on cp.student_id = student.student_id
@@ -654,6 +682,29 @@ $body$;
 revoke all on function public.get_public_club_team()
   from public, anon, authenticated;
 grant execute on function public.get_public_club_team()
+  to anon, authenticated;
+
+-- Public former committee archive exposes names, positions, terms, and portrait paths only.
+drop function if exists public.get_public_former_committees();
+create or replace function public.get_public_former_committees()
+returns table (
+  term_label text,
+  full_name text,
+  position_title text,
+  photo_path text
+)
+language sql
+stable
+security definer
+set search_path = ''
+as $body$
+  select former.term_label, former.full_name, former.position, former.photo_path
+  from public.former_committee_members as former
+  order by former.term_label desc, former.position, former.full_name;
+$body$;
+revoke all on function public.get_public_former_committees()
+  from public, anon, authenticated;
+grant execute on function public.get_public_former_committees()
   to anon, authenticated;
 
 -- Published files are intentionally public. Mutations stay behind the same
@@ -681,5 +732,26 @@ on conflict (id) do update set
 drop policy if exists "Admins manage club materials" on storage.objects;
 create policy "Admins manage club materials" on storage.objects
 for all to authenticated
-using (bucket_id = 'club-materials' and auth.uid() is not null)
-with check (bucket_id = 'club-materials' and auth.uid() is not null);
+using (
+  bucket_id = 'club-materials'
+  and auth.uid() is not null
+  and split_part(name, '/', 1) not in ('team-photos', 'former-team-photos')
+)
+with check (
+  bucket_id = 'club-materials'
+  and auth.uid() is not null
+  and split_part(name, '/', 1) not in ('team-photos', 'former-team-photos')
+);
+drop policy if exists "ADM001 manages committee portraits" on storage.objects;
+create policy "ADM001 manages committee portraits" on storage.objects
+for all to authenticated
+using (
+  bucket_id = 'club-materials'
+  and split_part(name, '/', 1) in ('team-photos', 'former-team-photos')
+  and public.is_committee_role_manager()
+)
+with check (
+  bucket_id = 'club-materials'
+  and split_part(name, '/', 1) in ('team-photos', 'former-team-photos')
+  and public.is_committee_role_manager()
+);
