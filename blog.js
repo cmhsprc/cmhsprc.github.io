@@ -4,8 +4,8 @@ document.querySelector("#site-nav").innerHTML = pageNav("blog");
 document.querySelector("#site-footer").innerHTML = pageFooter();
 let client;
 const postsEl = document.querySelector("#blog-posts"), moreButton = document.querySelector("#blog-more");
-const pageSize = 12;
-let offset = 0, totalCount = 0, token = 0;
+const pageSize = 2;
+let offset = 0, totalCount = 0, token = 0, autoLoadPaused = false;
 function renderPost(post) {
   const label = post.category === "material" ? "Class material" : "Announcement";
   const fileUrl = post.object_path ? client.storage.from("club-materials").getPublicUrl(post.object_path).data.publicUrl : "";
@@ -30,5 +30,20 @@ async function loadPosts(reset) {
   offset += rows.length;
   moreButton.hidden = offset >= totalCount || rows.length < pageSize;
 }
-moreButton.addEventListener("click", () => loadPosts(false).catch((error) => { moreButton.disabled = false; document.querySelector("#blog-status").textContent = error.message; }));
+function showLoadError(error) {
+  moreButton.disabled = false;
+  autoLoadPaused = true;
+  document.querySelector("#blog-status").textContent = error.message || "More posts could not load. Use Load more to retry.";
+}
+moreButton.addEventListener("click", () => {
+  autoLoadPaused = false;
+  loadPosts(false).catch(showLoadError);
+});
+if ("IntersectionObserver" in window) {
+  const observer = new IntersectionObserver((entries) => {
+    if (autoLoadPaused || moreButton.hidden || moreButton.disabled) return;
+    if (entries.some((entry) => entry.isIntersecting)) loadPosts(false).catch(showLoadError);
+  }, { rootMargin: "180px 0px" });
+  observer.observe(document.querySelector("#blog-sentinel"));
+}
 loadPosts(true).catch((error) => { document.querySelector("#blog-status").textContent = error.message || "The blog could not load."; postsEl.innerHTML = '<p class="site-empty">Blog posts are temporarily unavailable.</p>'; });

@@ -40,6 +40,26 @@ export function richContent(markup) {
   else Array.from(parsed.body.childNodes).map(copyNode).forEach((child) => container.append(child));
   return container.innerHTML;
 }
+export function bindSeeMore(container) {
+  if (!container) return;
+  container.querySelectorAll("[data-collapsible]").forEach((content) => {
+    const button = content.nextElementSibling;
+    if (!button || !button.matches("[data-see-more]")) return;
+    const update = () => {
+      const expanded = content.classList.contains("is-expanded");
+      button.hidden = !expanded && content.scrollHeight <= content.clientHeight + 1;
+      button.textContent = expanded ? "See less" : "See more";
+      button.setAttribute("aria-expanded", String(expanded));
+    };
+    button.addEventListener("click", () => {
+      content.classList.toggle("is-expanded");
+      update();
+    });
+    if (typeof requestAnimationFrame === "function") requestAnimationFrame(update);
+    else setTimeout(update, 0);
+  });
+}
+
 export function pageNav(active) {
   return '<header class="site-header"><a class="brand" href="./" aria-label="Club home"><img src="./assets/brand/cmhs-prc-profile.svg" alt="Club logo"><span>Cumilla Modern High School<br><strong>Programming And Robotics Club</strong></span></a><nav aria-label="Main navigation">' +
     [['home', './', 'Home'], ['about', './about.html', 'About Us'], ['events', './events.html', 'Events'], ['blog', './blog.html', 'Blog'], ['team', './team.html', 'Executives'], ['join', './join.html', 'Join Us']]

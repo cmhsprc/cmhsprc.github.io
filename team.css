@@ -39,3 +39,6 @@
 @media(max-width:900px){.team-grid,.former-term-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.committee-grid{grid-template-columns:repeat(2,minmax(0,1fr));max-width:680px}}
 @media(max-width:700px){.team-tabs{width:100%}.team-tab{flex:1;padding:10px 8px;font-size:10px}.team-grid,.former-term-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}.committee-grid{max-width:none}}
 @media(max-width:430px){.team-grid,.former-term-grid{grid-template-columns:1fr}.committee-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.team-person-copy{padding:11px}.team-person-name{font-size:14px}.team-section-heading{align-items:flex-start}.count{min-width:31px;height:31px}.former-term-button{padding:8px 10px}}
+
+.team-hero{text-align:center}
+.team-hero>p:not(.eyebrow){margin-left:auto;margin-right:auto;max-width:680px}

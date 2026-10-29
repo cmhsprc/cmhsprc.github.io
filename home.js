@@ -1,10 +1,10 @@
-import { getClient, escapeHtml, dateLabel, richContent, pageNav, pageFooter } from "./site-data.js";
+import { getClient, escapeHtml, dateLabel, richContent, bindSeeMore, pageNav, pageFooter } from "./site-data.js";
 
 const $ = (selector) => document.querySelector(selector);
 const rolePriority = ["President", "Vice President", "General Secretary", "Joint Secretary", "Treasurer", "Organizing Secretary", "IT Secretary", "Publicity Secretary", "Volunteer Coordinator", "Event Volunteer", "Technical Volunteer", "Content Volunteer", "Executive Member", "Delegate", "Trainer", "Assistant Trainer"];
 const roleRank = (position) => { const rank = rolePriority.indexOf(String(position || "")); return rank < 0 ? rolePriority.length : rank; };
-const eventCard = (event) => '<article class="site-card site-event-card"><div class="site-meta"><time>' + escapeHtml(dateLabel(event.event_date)) + (event.event_time ? " · " + escapeHtml(event.event_time) : "") + '</time><span class="site-tag">' + escapeHtml(event.event_type) + '</span></div><h3>' + escapeHtml(event.title) + '</h3><p>' + escapeHtml(event.summary || event.location || "Club event") + '</p></article>';
-const postCard = (post) => '<article class="site-card"><div class="site-meta"><span>' + escapeHtml(dateLabel(post.created_at)) + '</span><span class="site-tag">' + (post.category === "material" ? "Class material" : "Announcement") + '</span></div><h3>' + escapeHtml(post.title) + '</h3><p>' + escapeHtml(post.batch_name || "Club") + '</p><div class="site-prose-rich">' + richContent(post.body) + '</div></article>';
+const eventCard = (event) => '<article class="site-card site-event-card"><div class="site-meta"><time>' + escapeHtml(dateLabel(event.event_date)) + (event.event_time ? " · " + escapeHtml(event.event_time) : "") + '</time><span class="site-tag">' + escapeHtml(event.event_type) + '</span></div><h3>' + escapeHtml(event.title) + '</h3><div class="site-event-copy site-collapsible" data-collapsible>' + escapeHtml(event.summary || event.location || "Club event") + '</div><button class="site-see-more" data-see-more type="button" aria-expanded="false" hidden>See more</button></article>';
+const postCard = (post) => '<article class="site-card"><div class="site-meta"><span>' + escapeHtml(dateLabel(post.created_at)) + '</span><span class="site-tag">' + (post.category === "material" ? "Class material" : "Announcement") + '</span></div><h3>' + escapeHtml(post.title) + '</h3><p>' + escapeHtml(post.batch_name || "Club") + '</p><div class="site-prose-rich site-collapsible" data-collapsible>' + richContent(post.body) + '</div><button class="site-see-more" data-see-more type="button" aria-expanded="false" hidden>See more</button></article>';
 
 async function loadHome() {
   const client = getClient();
@@ -25,8 +25,10 @@ async function loadHome() {
   if (join) { $("#home-join-title").textContent = join.title || "Join the club"; $("#home-join-intro").textContent = join.subtitle || join.hero_intro || ""; }
   const eventRows = events.data || [];
   $("#home-events").innerHTML = eventRows.length ? eventRows.map(eventCard).join("") : '<p class="site-empty">No events have been published yet. Check back for club updates.</p>';
+  bindSeeMore($("#home-events"));
   const postRows = posts.data || [];
   $("#home-blog").innerHTML = postRows.length ? postRows.map(postCard).join("") : '<p class="site-empty">No posts have been published yet.</p>';
+  bindSeeMore($("#home-blog"));
   const members = (team.data || []).slice().sort((a, b) => roleRank(a.position_title || a.team_role) - roleRank(b.position_title || b.team_role) || String(a.full_name).localeCompare(String(b.full_name)));
   const featured = members.slice(0, 6);
   $("#home-team").innerHTML = featured.length ? featured.map((member) => '<span class="site-person"><strong>' + escapeHtml(member.full_name) + '</strong><span>' + escapeHtml(member.position_title || member.team_role) + '</span></span>').join("") : '<p class="site-empty">The club team will be listed here.</p>';
