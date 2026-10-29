@@ -1,7 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const config = window.CLUB_SUPABASE_CONFIG || {};
-const rolePriority = ["President", "Vice President", "General Secretary", "Joint Secretary", "Treasurer", "Organizing Secretary", "IT Secretary", "Publicity Secretary", "Executive Member"];
+const rolePriority = ["President", "Vice President", "General Secretary", "Joint Secretary", "Treasurer", "Organizing Secretary", "IT Secretary", "Publicity Secretary", "Volunteer Coordinator", "Trainer", "Assistant Trainer", "Executive Member", "Volunteer"];
 const roleRank = (position) => {
   const rank = rolePriority.indexOf(String(position || ""));
   return rank < 0 ? rolePriority.length : rank;
@@ -27,7 +27,7 @@ function selectTeamTab(tabName) {
     tab.setAttribute("aria-selected", String(selected));
     tab.tabIndex = selected ? 0 : -1;
   });
-  ["committee", "former", "advisors"].forEach((panel) => {
+  ["committee", "former", "advisors", "volunteers"].forEach((panel) => {
     document.querySelector("#" + panel + "-team-panel").hidden = panel !== tabName;
   });
 }
@@ -75,6 +75,22 @@ async function loadTeam() {
         return renderPersonCard(member.full_name, member.position_title, photoUrl, "Committee member");
       }).join("")
     : '<p class="team-empty">Committee members will appear here when they are added.</p>';
+
+  const { data: volunteers, error: volunteerError } = await teamClient.rpc("get_public_club_volunteers");
+  if (volunteerError) {
+    document.querySelector("#volunteers-count").textContent = "—";
+    document.querySelector("#volunteer-members").innerHTML = '<p class="team-empty">The volunteer list is temporarily unavailable. Run the updated supabase/schema.sql to enable it.</p>';
+  } else {
+    const volunteerList = (volunteers || []).filter((volunteer) => volunteer.full_name)
+      .sort((a, b) => roleRank(a.position_title) - roleRank(b.position_title) || a.full_name.localeCompare(b.full_name));
+    document.querySelector("#volunteers-count").textContent = String(volunteerList.length);
+    document.querySelector("#volunteer-members").innerHTML = volunteerList.length
+      ? volunteerList.map((volunteer) => {
+          const photoUrl = volunteer.photo_path ? teamClient.storage.from("club-materials").getPublicUrl(volunteer.photo_path).data.publicUrl : "";
+          return renderPersonCard(volunteer.full_name, volunteer.position_title, photoUrl, "Volunteer");
+        }).join("")
+      : '<p class="team-empty">Volunteer profiles will appear here when they are added.</p>';
+  }
 
   const { data: formerMembers, error: formerError } = await teamClient.rpc("get_public_former_committees");
   if (formerError) {
@@ -124,4 +140,6 @@ loadTeam().catch((error) => {
   document.querySelector("#committee-members").innerHTML = '<p class="team-empty">The committee list is temporarily unavailable.</p>';
   document.querySelector("#former-committees-list").innerHTML = '<p class="team-empty">Former committee list is temporarily unavailable.</p>';
   document.querySelector("#advisor-members").innerHTML = '<p class="team-empty">Advisor list is temporarily unavailable.</p>';
+  document.querySelector("#volunteers-count").textContent = "—";
+  document.querySelector("#volunteer-members").innerHTML = '<p class="team-empty">Volunteer list is temporarily unavailable.</p>';
 });

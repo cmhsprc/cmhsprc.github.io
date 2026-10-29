@@ -21,13 +21,14 @@
     <section class="hero team-hero">
       <p class="eyebrow">CLUB LEADERSHIP</p>
       <h1>Meet our <span>people.</span></h1>
-      <p>Explore the current committee, past committee members, and advisors.</p>
+      <p>Explore the current committee, former committee members, advisors, and volunteers.</p>
     </section>
     <p id="team-status" class="status" role="status" aria-live="polite"></p>
     <div class="team-tabs" role="tablist" aria-label="Club leadership">
       <button class="team-tab is-selected" id="committee-team-tab" type="button" role="tab" aria-selected="true" aria-controls="committee-team-panel" data-team-tab="committee">Committee</button>
       <button class="team-tab" id="former-team-tab" type="button" role="tab" aria-selected="false" aria-controls="former-team-panel" data-team-tab="former">Former Committee</button>
       <button class="team-tab" id="advisors-team-tab" type="button" role="tab" aria-selected="false" aria-controls="advisors-team-panel" data-team-tab="advisors">Advisors</button>
+      <button class="team-tab" id="volunteers-team-tab" type="button" role="tab" aria-selected="false" aria-controls="volunteers-team-panel" data-team-tab="volunteers">Volunteers</button>
     </div>
     <div id="committee-team-panel" class="team-view-panel" role="tabpanel" aria-labelledby="committee-team-tab">
       <section class="team-section" aria-labelledby="committee-title">
@@ -47,6 +48,12 @@
       <section class="team-section" aria-labelledby="advisors-title">
         <div class="team-section-heading"><div><p class="eyebrow">GUIDANCE & SUPPORT</p><h2 id="advisors-title">Advisors</h2></div><span id="advisors-count" class="count">—</span></div>
         <div id="advisor-members" class="team-grid advisor-grid"><p class="team-empty">Loading advisors…</p></div>
+      </section>
+    </div>
+    <div id="volunteers-team-panel" class="team-view-panel" role="tabpanel" aria-labelledby="volunteers-team-tab" hidden>
+      <section class="team-section" aria-labelledby="volunteers-title">
+        <div class="team-section-heading"><div><p class="eyebrow">HELPING VOLUNTEERS</p><h2 id="volunteers-title">Volunteers</h2></div><span id="volunteers-count" class="count">—</span></div>
+        <div id="volunteer-members" class="team-grid volunteer-grid"><p class="team-empty">Loading volunteers…</p></div>
       </section>
     </div>
     <p class="team-privacy-note">Only names, public roles, and portraits appear here. Student IDs and contact details stay private.</p>

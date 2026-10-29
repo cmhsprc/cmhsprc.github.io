@@ -682,6 +682,33 @@ revoke all on function public.get_public_club_team()
 grant execute on function public.get_public_club_team()
   to anon, authenticated;
 
+-- Public volunteer list shows EM names, assigned public positions, and portraits only.
+drop function if exists public.get_public_club_volunteers();
+create or replace function public.get_public_club_volunteers()
+returns table (
+  full_name text,
+  position_title text,
+  photo_path text
+)
+language sql
+stable
+security definer
+set search_path = ''
+as $body$
+  select student.full_name,
+         coalesce(cp.position, 'Volunteer')::text,
+         cp.photo_path
+  from public.students as student
+  left join public.committee_positions as cp
+    on cp.student_id = student.student_id
+  where upper(student.student_id) like '%EM%'
+  order by 2, 1;
+$body$;
+revoke all on function public.get_public_club_volunteers()
+  from public, anon, authenticated;
+grant execute on function public.get_public_club_volunteers()
+  to anon, authenticated;
+
 -- Public former committee archive exposes names, positions, terms, and portrait paths only.
 drop function if exists public.get_public_former_committees();
 create or replace function public.get_public_former_committees()

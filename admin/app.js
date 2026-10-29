@@ -487,7 +487,7 @@ function renderCommittee() {
     const photoPreview = assignment && assignment.photo_path
       ? '<img class="committee-photo-preview" src="' + escapeHtml(publicResourceUrl(assignment.photo_path)) + '" alt="Current portrait for ' + escapeHtml(student.full_name) + '">'
       : '<span class="committee-photo-empty">No portrait</span>';
-    const photoControl = roles.admin
+    const photoControl = (roles.admin || roles.volunteer)
       ? '<div class="committee-photo-control">' + photoPreview +
         '<label class="committee-photo-upload">Upload portrait<input type="file" accept="image/jpeg,image/png,image/webp" data-photo-for="' + encodeURIComponent(student.student_id) + '" aria-label="Upload portrait for ' + escapeHtml(student.full_name) + '"></label>' +
         (assignment && assignment.photo_path ? '<button class="table-action" type="button" data-clear-photo="' + encodeURIComponent(student.student_id) + '">Remove photo</button>' : '') + '</div>'
