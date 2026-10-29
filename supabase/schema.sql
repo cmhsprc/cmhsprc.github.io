@@ -74,6 +74,20 @@ create table if not exists public.former_committee_members (
 create index if not exists former_committee_term_idx
   on public.former_committee_members (term_label desc, position, full_name);
 
+-- Advisors are maintained separately because they may be staff or mentors rather than student records.
+create table if not exists public.club_advisors (
+  id uuid primary key default gen_random_uuid(),
+  full_name text not null check (char_length(trim(full_name)) between 1 and 160),
+  position_title text not null check (char_length(trim(position_title)) between 1 and 120),
+  photo_path text,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  updated_by uuid references auth.users(id)
+);
+create index if not exists club_advisors_sort_idx
+  on public.club_advisors (sort_order, full_name);
+
 -- Private authorization link, synced from the email saved on student ADM001
 -- to the matching Supabase Auth account when this schema runs.
 create table if not exists public.committee_role_managers (
@@ -432,12 +446,16 @@ for each row execute function public.set_updated_at();
 drop trigger if exists former_committee_members_set_updated_at on public.former_committee_members;
 create trigger former_committee_members_set_updated_at before update on public.former_committee_members
 for each row execute function public.set_updated_at();
+drop trigger if exists club_advisors_set_updated_at on public.club_advisors;
+create trigger club_advisors_set_updated_at before update on public.club_advisors
+for each row execute function public.set_updated_at();
 
 alter table public.students enable row level security;
 alter table public.batches enable row level security;
 alter table public.batch_students enable row level security;
 alter table public.committee_positions enable row level security;
 alter table public.former_committee_members enable row level security;
+alter table public.club_advisors enable row level security;
 alter table public.batch_resources enable row level security;
 alter table public.attendance_sessions enable row level security;
 alter table public.attendance_records enable row level security;
@@ -446,6 +464,7 @@ revoke all on public.batches from anon, authenticated;
 revoke all on public.batch_students from anon, authenticated;
 revoke all on public.committee_positions from anon, authenticated;
 revoke all on public.former_committee_members from anon, authenticated;
+revoke all on public.club_advisors from anon, authenticated;
 revoke all on public.batch_resources from anon, authenticated;
 revoke all on public.attendance_sessions from anon, authenticated;
 revoke all on public.attendance_records from anon, authenticated;
@@ -454,6 +473,7 @@ grant select, insert, update, delete on public.batches to authenticated;
 grant select, insert, update, delete on public.batch_students to authenticated;
 grant select, insert, update, delete on public.committee_positions to authenticated;
 grant select, insert, update, delete on public.former_committee_members to authenticated;
+grant select, insert, update, delete on public.club_advisors to authenticated;
 grant select, insert, update, delete on public.batch_resources to authenticated;
 grant usage, select on sequence public.batches_batch_number_seq to authenticated;
 revoke all on sequence public.batches_batch_number_seq from anon;
@@ -477,6 +497,9 @@ create policy "ADM001 manages committee positions" on public.committee_positions
 using (public.is_committee_role_manager()) with check (public.is_committee_role_manager());
 drop policy if exists "ADM001 manages former committee" on public.former_committee_members;
 create policy "ADM001 manages former committee" on public.former_committee_members for all to authenticated
+using (public.is_committee_role_manager()) with check (public.is_committee_role_manager());
+drop policy if exists "ADM001 manages club advisors" on public.club_advisors;
+create policy "ADM001 manages club advisors" on public.club_advisors for all to authenticated
 using (public.is_committee_role_manager()) with check (public.is_committee_role_manager());
 drop policy if exists "Admins manage batch resources" on public.batch_resources;
 create policy "Admins manage batch resources" on public.batch_resources for all to authenticated
@@ -630,7 +653,7 @@ $body$;
 revoke all on function public.get_public_site_blog(integer, integer) from public, anon, authenticated;
 grant execute on function public.get_public_site_blog(integer, integer) to anon, authenticated;
 
--- Public team page returns names and assigned public-facing role titles only.
+-- Public executives page returns the current ADM committee only.
 drop function if exists public.get_public_club_team();
 create or replace function public.get_public_club_team()
 returns table (
@@ -644,40 +667,15 @@ stable
 security definer
 set search_path = ''
 as $body$
-  select 'Delegate'::text, student.full_name, cp.position, cp.photo_path
-  from public.students as student
-  join public.committee_positions as cp
-    on cp.student_id = student.student_id
-  where cp.position = 'Delegate'
-
-  union all
-
-  select 'Administrator (ADM)'::text, student.full_name,
-         coalesce(cp.position, 'Administrator (ADM)')::text, cp.photo_path
+  select 'Committee'::text,
+         student.full_name,
+         coalesce(cp.position, 'Committee Member')::text,
+         cp.photo_path
   from public.students as student
   left join public.committee_positions as cp
     on cp.student_id = student.student_id
   where upper(student.student_id) like '%ADM%'
-
-  union all
-
-  select 'Trainer (EM)'::text, student.full_name, cp.position, cp.photo_path
-  from public.students as student
-  join public.committee_positions as cp
-    on cp.student_id = student.student_id
-  where upper(student.student_id) like '%EM%'
-    and cp.position = 'Trainer'
-
-  union all
-
-  select 'Assistant Trainer (EM)'::text, student.full_name, cp.position, cp.photo_path
-  from public.students as student
-  join public.committee_positions as cp
-    on cp.student_id = student.student_id
-  where upper(student.student_id) like '%EM%'
-    and cp.position = 'Assistant Trainer'
-
-  order by 1, 2;
+  order by 3, 2;
 $body$;
 revoke all on function public.get_public_club_team()
   from public, anon, authenticated;
@@ -705,6 +703,28 @@ $body$;
 revoke all on function public.get_public_former_committees()
   from public, anon, authenticated;
 grant execute on function public.get_public_former_committees()
+  to anon, authenticated;
+
+-- Public advisor directory returns titles and portraits only.
+drop function if exists public.get_public_club_advisors();
+create or replace function public.get_public_club_advisors()
+returns table (
+  full_name text,
+  position_title text,
+  photo_path text
+)
+language sql
+stable
+security definer
+set search_path = ''
+as $body$
+  select advisor.full_name, advisor.position_title, advisor.photo_path
+  from public.club_advisors as advisor
+  order by advisor.sort_order, advisor.full_name;
+$body$;
+revoke all on function public.get_public_club_advisors()
+  from public, anon, authenticated;
+grant execute on function public.get_public_club_advisors()
   to anon, authenticated;
 
 -- Published files are intentionally public. Mutations stay behind the same
@@ -735,23 +755,23 @@ for all to authenticated
 using (
   bucket_id = 'club-materials'
   and auth.uid() is not null
-  and split_part(name, '/', 1) not in ('team-photos', 'former-team-photos')
+  and split_part(name, '/', 1) not in ('team-photos', 'former-team-photos', 'advisor-photos')
 )
 with check (
   bucket_id = 'club-materials'
   and auth.uid() is not null
-  and split_part(name, '/', 1) not in ('team-photos', 'former-team-photos')
+  and split_part(name, '/', 1) not in ('team-photos', 'former-team-photos', 'advisor-photos')
 );
 drop policy if exists "ADM001 manages committee portraits" on storage.objects;
 create policy "ADM001 manages committee portraits" on storage.objects
 for all to authenticated
 using (
   bucket_id = 'club-materials'
-  and split_part(name, '/', 1) in ('team-photos', 'former-team-photos')
+  and split_part(name, '/', 1) in ('team-photos', 'former-team-photos', 'advisor-photos')
   and public.is_committee_role_manager()
 )
 with check (
   bucket_id = 'club-materials'
-  and split_part(name, '/', 1) in ('team-photos', 'former-team-photos')
+  and split_part(name, '/', 1) in ('team-photos', 'former-team-photos', 'advisor-photos')
   and public.is_committee_role_manager()
 );

@@ -22,7 +22,7 @@ const RESOURCE_MIME_TYPES = {
 };
 const RESOURCE_ACCEPT = ".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.csv,.zip,.jpg,.jpeg,.png,.webp";
 const COMMITTEE_POSITIONS = ["President", "Vice President", "General Secretary", "Joint Secretary", "Treasurer", "Organizing Secretary", "IT Secretary", "Publicity Secretary", "Delegate", "Trainer", "Assistant Trainer", "Executive Member", "Volunteer Coordinator", "Event Volunteer", "Technical Volunteer", "Content Volunteer"];
-const state = { client: null, userId: "", isCommitteeManager: false, committeePositions: [], formerCommitteeMembers: [], students: [], batches: [], memberships: [], sessions: [], attendance: [], resources: [], resourcesError: null, websitePages: [], websiteEvents: [], planUpdatedAt: null, page: "overview",
+const state = { client: null, userId: "", isCommitteeManager: false, committeePositions: [], formerCommitteeMembers: [], clubAdvisors: [], students: [], batches: [], memberships: [], sessions: [], attendance: [], resources: [], resourcesError: null, websitePages: [], websiteEvents: [], planUpdatedAt: null, page: "overview",
   currentStudent: null, editingId: null, selectedSessionId: "", attendanceFilter: "All", selectedBatchId: "", pendingImport: [], pendingImportAttendance: [], filteredStudents: [] };
 const $ = (selector) => document.querySelector(selector);
 
@@ -106,7 +106,7 @@ function setPage(page) {
   const titles = { overview: "Overview", students: "Students", committee: "Committee & volunteers", batches: "Batches", resources: "Blog & materials", website: "Main website", attendance: "Attendance", reports: "Reports", data: "Data quality", plan: "Admin plan", activity: "Activity log", backup: "Import & backup" };
   $("#page-title").textContent = titles[page] || "Overview";
   if (page === "students") renderStudents();
-  if (page === "committee") { renderCommittee(); renderFormerCommittee(); }
+  if (page === "committee") { renderCommittee(); renderFormerCommittee(); renderClubAdvisors(); }
   if (page === "batches") renderBatches();
   if (page === "resources") renderResources();
   if (page === "website") loadWebsiteData();
@@ -152,20 +152,24 @@ async function loadData() {
   if (state.isCommitteeManager) {
     const committeeData = await Promise.all([
       state.client.from("committee_positions").select("*"),
-      state.client.from("former_committee_members").select("*").order("term_label", { ascending: false }).order("full_name")
+      state.client.from("former_committee_members").select("*").order("term_label", { ascending: false }).order("full_name"),
+      state.client.from("club_advisors").select("*").order("sort_order").order("full_name")
     ]);
     if (committeeData[0].error) throw new Error("Committee positions: " + committeeData[0].error.message + ". Run the updated supabase/schema.sql.");
     if (committeeData[1].error) throw new Error("Former committee archive: " + committeeData[1].error.message + ". Run the updated supabase/schema.sql.");
+    if (committeeData[2].error) throw new Error("Advisor directory: " + committeeData[2].error.message + ". Run the updated supabase/schema.sql.");
     state.committeePositions = committeeData[0].data || [];
     state.formerCommitteeMembers = committeeData[1].data || [];
+    state.clubAdvisors = committeeData[2].data || [];
   } else {
     state.committeePositions = [];
     state.formerCommitteeMembers = [];
+    state.clubAdvisors = [];
   }
   $("#committee-nav-item").hidden = !state.isCommitteeManager;
   $("#activity-nav-item").hidden = !state.isCommitteeManager;
   if (!state.batches.some((batch) => batch.id === state.selectedBatchId)) state.selectedBatchId = state.batches[0] ? state.batches[0].id : "";
-  renderDashboard(); renderStudents(); renderCommittee(); renderFormerCommittee(); renderBatches(); renderResources(); renderAttendance(); renderReports(); renderQuality();
+  renderDashboard(); renderStudents(); renderCommittee(); renderFormerCommittee(); renderClubAdvisors(); renderBatches(); renderResources(); renderAttendance(); renderReports(); renderQuality();
 }
 async function loadAdminPlan() {
   const errorEl = $("#admin-plan-error"); if (!errorEl) return;
@@ -241,7 +245,7 @@ function showApp(user) {
 function showLogin() {
   state.userId = ""; state.isCommitteeManager = false; state.committeePositions = []; $("#committee-nav-item").hidden = true; $("#activity-nav-item").hidden = true; state.planUpdatedAt = null;
   state.students = []; state.batches = []; state.memberships = []; state.sessions = []; state.attendance = []; state.resources = []; state.resourcesError = null; state.websitePages = []; state.websiteEvents = []; state.filteredStudents = []; state.selectedBatchId = "";
-  $("#committee-table-body").innerHTML = ""; $("#former-committee-table-body").innerHTML = ""; $("#activity-table-body").innerHTML = ""; $("#admin-plan-content").value = ""; state.formerCommitteeMembers = []; if ($("#former-committee-form")) resetFormerCommitteeForm(); state.page = "overview";
+  $("#committee-table-body").innerHTML = ""; $("#former-committee-table-body").innerHTML = ""; $("#advisor-table-body").innerHTML = ""; $("#activity-table-body").innerHTML = ""; $("#admin-plan-content").value = ""; state.formerCommitteeMembers = []; state.clubAdvisors = []; if ($("#former-committee-form")) resetFormerCommitteeForm(); if ($("#advisor-form")) resetAdvisorForm(); state.page = "overview";
   document.querySelectorAll(".page-section").forEach((section) => { section.hidden = section.dataset.section !== "overview"; });
   document.querySelectorAll(".nav-item[data-page]").forEach((button) => button.classList.toggle("active", button.dataset.page === "overview"));
   $("#page-title").textContent = "Overview";
@@ -483,9 +487,11 @@ function renderCommittee() {
     const photoPreview = assignment && assignment.photo_path
       ? '<img class="committee-photo-preview" src="' + escapeHtml(publicResourceUrl(assignment.photo_path)) + '" alt="Current portrait for ' + escapeHtml(student.full_name) + '">'
       : '<span class="committee-photo-empty">No portrait</span>';
-    const photoControl = '<div class="committee-photo-control">' + photoPreview +
-      '<label class="committee-photo-upload">Upload portrait<input type="file" accept="image/jpeg,image/png,image/webp" data-photo-for="' + encodeURIComponent(student.student_id) + '" aria-label="Upload portrait for ' + escapeHtml(student.full_name) + '"></label>' +
-      (assignment && assignment.photo_path ? '<button class="table-action" type="button" data-clear-photo="' + encodeURIComponent(student.student_id) + '">Remove photo</button>' : '') + '</div>';
+    const photoControl = roles.admin
+      ? '<div class="committee-photo-control">' + photoPreview +
+        '<label class="committee-photo-upload">Upload portrait<input type="file" accept="image/jpeg,image/png,image/webp" data-photo-for="' + encodeURIComponent(student.student_id) + '" aria-label="Upload portrait for ' + escapeHtml(student.full_name) + '"></label>' +
+        (assignment && assignment.photo_path ? '<button class="table-action" type="button" data-clear-photo="' + encodeURIComponent(student.student_id) + '">Remove photo</button>' : '') + '</div>'
+      : '';
     const positionControl = '<div class="committee-position-control"><select data-position-for="' + encodeURIComponent(student.student_id) + '" aria-label="Specific position for ' + escapeHtml(student.full_name) + '">' + positionOptions.join("") + '</select><button class="table-action" type="button" data-save-position="' + encodeURIComponent(student.student_id) + '">Save</button></div>' + photoControl;
     return "<tr><td>" + labels.join(" ") + "</td><td><span class=\"id-badge\">" + escapeHtml(student.student_id) + "</span></td><td><strong>" + escapeHtml(displayValue(student.full_name)) +
       "</strong></td><td>" + escapeHtml(displayValue(student.class)) + " / " + escapeHtml(displayValue(student.section)) + "</td><td>" + positionControl + "</td><td>" + phoneCell(student.student_contact_number) +
@@ -727,6 +733,141 @@ $("#former-committee-table-body").addEventListener("click", async (event) => {
   if ($("#former-member-id").value === member.id) resetFormerCommitteeForm();
   renderFormerCommittee();
   showToast("Former committee member deleted.", "success");
+});
+
+
+function renderClubAdvisors() {
+  const body = $("#advisor-table-body");
+  if (!body || !state.isCommitteeManager) return;
+  const rows = state.clubAdvisors.slice().sort((a, b) =>
+    Number(a.sort_order || 0) - Number(b.sort_order || 0) || String(a.full_name).localeCompare(String(b.full_name))
+  );
+  $("#advisor-count").textContent = rows.length + (rows.length === 1 ? " advisor" : " advisors");
+  $("#advisor-empty").hidden = rows.length > 0;
+  body.innerHTML = rows.map((advisor) => {
+    const portrait = advisor.photo_path
+      ? '<img class="former-photo-thumb" src="' + escapeHtml(publicResourceUrl(advisor.photo_path)) + '" alt="Portrait of ' + escapeHtml(advisor.full_name) + '">'
+      : "—";
+    return "<tr><td>" + escapeHtml(advisor.sort_order) + "</td><td><strong>" + escapeHtml(advisor.full_name) +
+      "</strong></td><td>" + escapeHtml(advisor.position_title) + "</td><td>" + portrait +
+      '</td><td><div class="former-actions"><button class="table-action" type="button" data-edit-advisor="' + advisor.id +
+      '">Edit</button><button class="table-action delete-former-member" type="button" data-delete-advisor="' + advisor.id +
+      '">Delete</button></div></td></tr>';
+  }).join("");
+}
+function resetAdvisorForm() {
+  $("#advisor-form").reset();
+  $("#advisor-id").value = "";
+  $("#advisor-sort-order").value = "0";
+  $("#advisor-current-photo").hidden = true;
+  $("#advisor-error").hidden = true;
+  $("#save-advisor").textContent = "Add advisor";
+  $("#cancel-advisor").hidden = true;
+}
+function editAdvisor(advisorId) {
+  const advisor = state.clubAdvisors.find((item) => item.id === advisorId);
+  if (!advisor) return;
+  $("#advisor-id").value = advisor.id;
+  $("#advisor-name").value = advisor.full_name;
+  $("#advisor-title").value = advisor.position_title;
+  $("#advisor-sort-order").value = String(advisor.sort_order || 0);
+  $("#advisor-photo").value = "";
+  $("#save-advisor").textContent = "Save changes";
+  $("#cancel-advisor").hidden = false;
+  const photo = $("#advisor-current-photo");
+  if (advisor.photo_path) {
+    photo.innerHTML = 'Current portrait: <a href="' + escapeHtml(publicResourceUrl(advisor.photo_path)) + '" target="_blank" rel="noopener noreferrer">View portrait</a>. Choose a replacement to update it.';
+    photo.hidden = false;
+  } else photo.hidden = true;
+  $("#advisor-error").hidden = true;
+  $("#advisor-form").scrollIntoView({ behavior: "smooth", block: "center" });
+}
+$("#cancel-advisor").addEventListener("click", resetAdvisorForm);
+$("#advisor-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const errorEl = $("#advisor-error");
+  errorEl.hidden = true;
+  if (!state.isCommitteeManager) { errorEl.textContent = "Only the ADM001-linked account can manage advisors."; errorEl.hidden = false; return; }
+  const fullName = $("#advisor-name").value.trim();
+  const positionTitle = $("#advisor-title").value.trim();
+  const sortOrder = Number($("#advisor-sort-order").value);
+  const file = $("#advisor-photo").files && $("#advisor-photo").files[0];
+  const advisorId = $("#advisor-id").value;
+  const previous = advisorId ? state.clubAdvisors.find((item) => item.id === advisorId) : null;
+  if (!fullName || !positionTitle || !Number.isInteger(sortOrder) || sortOrder < 0 || sortOrder > 9999) {
+    errorEl.textContent = "Enter a name, title, and a whole-number display order from 0 to 9999.";
+    errorEl.hidden = false;
+    return;
+  }
+  let fileInfo = null;
+  if (file) {
+    const extension = String(file.name.split(".").pop() || "").toLowerCase();
+    const mimeByExtension = { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp" };
+    if (!mimeByExtension[extension] || file.type !== mimeByExtension[extension] || file.size <= 0 || file.size > 5 * 1024 * 1024) {
+      errorEl.textContent = "Choose a JPG, PNG, or WebP portrait smaller than 5 MB.";
+      errorEl.hidden = false;
+      return;
+    }
+    fileInfo = { extension, contentType: mimeByExtension[extension] };
+  }
+  const submit = $("#save-advisor");
+  submit.disabled = true;
+  let newPath = null;
+  let saved = false;
+  try {
+    if (file && fileInfo) {
+      newPath = "advisor-photos/" + createObjectToken() + "." + fileInfo.extension;
+      const upload = await state.client.storage.from(PUBLIC_RESOURCE_BUCKET).upload(newPath, file, {
+        contentType: fileInfo.contentType, cacheControl: "3600", upsert: false
+      });
+      if (upload.error) throw new Error("Portrait upload failed: " + upload.error.message);
+    }
+    const payload = {
+      full_name: fullName,
+      position_title: positionTitle,
+      sort_order: sortOrder,
+      photo_path: newPath || (previous ? previous.photo_path : null),
+      updated_by: state.userId
+    };
+    const result = previous
+      ? await state.client.from("club_advisors").update(payload).eq("id", previous.id).select().single()
+      : await state.client.from("club_advisors").insert(payload).select().single();
+    if (result.error) throw new Error("Could not save the advisor: " + result.error.message);
+    saved = true;
+    if (newPath && previous && previous.photo_path) {
+      const removed = await state.client.storage.from(PUBLIC_RESOURCE_BUCKET).remove([previous.photo_path]);
+      if (removed.error) showToast("Advisor saved, but the old portrait could not be deleted: " + removed.error.message, "error");
+    }
+    state.clubAdvisors = previous
+      ? state.clubAdvisors.map((item) => item.id === previous.id ? result.data : item)
+      : [...state.clubAdvisors, result.data];
+    resetAdvisorForm();
+    renderClubAdvisors();
+    showToast(previous ? "Advisor updated." : "Advisor added.", "success");
+  } catch (error) {
+    if (newPath && !saved) await state.client.storage.from(PUBLIC_RESOURCE_BUCKET).remove([newPath]);
+    errorEl.textContent = error.message || "Could not save the advisor.";
+    errorEl.hidden = false;
+  } finally { submit.disabled = false; }
+});
+$("#advisor-table-body").addEventListener("click", async (event) => {
+  const editButton = event.target.closest("[data-edit-advisor]");
+  if (editButton) { editAdvisor(editButton.dataset.editAdvisor); return; }
+  const deleteButton = event.target.closest("[data-delete-advisor]");
+  if (!deleteButton) return;
+  const advisor = state.clubAdvisors.find((item) => item.id === deleteButton.dataset.deleteAdvisor);
+  if (!advisor || !window.confirm("Delete " + advisor.full_name + " from the public advisor list?")) return;
+  deleteButton.disabled = true;
+  const result = await state.client.from("club_advisors").delete().eq("id", advisor.id);
+  if (result.error) { deleteButton.disabled = false; showToast("Could not delete the advisor: " + result.error.message, "error"); return; }
+  if (advisor.photo_path) {
+    const removed = await state.client.storage.from(PUBLIC_RESOURCE_BUCKET).remove([advisor.photo_path]);
+    if (removed.error) showToast("Advisor removed, but the portrait file could not be deleted: " + removed.error.message, "error");
+  }
+  state.clubAdvisors = state.clubAdvisors.filter((item) => item.id !== advisor.id);
+  if ($("#advisor-id").value === advisor.id) resetAdvisorForm();
+  renderClubAdvisors();
+  showToast("Advisor removed.", "success");
 });
 
 $("#student-search").addEventListener("input", renderStudents);

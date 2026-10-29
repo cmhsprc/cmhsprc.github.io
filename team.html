@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#07111f">
-  <meta name="description" content="Meet current executives and explore former committees of the CMHS Programming and Robotics Club.">
+  <meta name="description" content="Meet the current committee, former committees, and advisors of the CMHS Programming and Robotics Club.">
   <title>Club Executives | CMHS Programming & Robotics Club</title>
   <link rel="icon" href="./assets/brand/cmhs-prc-profile.svg" type="image/svg+xml"><link rel="alternate icon" href="./assets/brand/cmhs-prc-profile.png" type="image/png">
   <link rel="stylesheet" href="./portal.css">
@@ -19,41 +19,34 @@
   </header>
   <main class="page-wrap team-page">
     <section class="hero team-hero">
-      <p class="eyebrow">THE PEOPLE BEHIND THE CLUB</p>
-      <h1>Meet our <span>executives.</span></h1>
-      <p>Students who help organize the club, support its members, and lead our learning activities.</p>
+      <p class="eyebrow">CLUB LEADERSHIP</p>
+      <h1>Meet our <span>people.</span></h1>
+      <p>Explore the current committee, past committee members, and advisors.</p>
     </section>
     <p id="team-status" class="status" role="status" aria-live="polite"></p>
-    <div class="team-tabs" role="tablist" aria-label="Executive committees">
-      <button class="team-tab is-selected" id="current-team-tab" type="button" role="tab" aria-selected="true" aria-controls="current-team-panel" data-team-tab="current">Current</button>
-      <button class="team-tab" id="former-team-tab" type="button" role="tab" aria-selected="false" aria-controls="former-team-panel" data-team-tab="former">Former</button>
+    <div class="team-tabs" role="tablist" aria-label="Club leadership">
+      <button class="team-tab is-selected" id="committee-team-tab" type="button" role="tab" aria-selected="true" aria-controls="committee-team-panel" data-team-tab="committee">Committee</button>
+      <button class="team-tab" id="former-team-tab" type="button" role="tab" aria-selected="false" aria-controls="former-team-panel" data-team-tab="former">Former Committee</button>
+      <button class="team-tab" id="advisors-team-tab" type="button" role="tab" aria-selected="false" aria-controls="advisors-team-panel" data-team-tab="advisors">Advisors</button>
     </div>
-    <div id="current-team-panel" class="team-view-panel" role="tabpanel" aria-labelledby="current-team-tab">
-      <section class="team-section team-leadership" aria-labelledby="admins-title">
-        <div class="team-section-heading"><div><p class="eyebrow">CLUB LEADERSHIP</p><h2 id="admins-title">Executive board</h2><p>Leading the club and coordinating its work.</p></div><span id="admins-count" class="count">—</span></div>
-        <div id="admins-list" class="team-grid executive-grid"><p class="team-empty">Loading executives…</p></div>
+    <div id="committee-team-panel" class="team-view-panel" role="tabpanel" aria-labelledby="committee-team-tab">
+      <section class="team-section" aria-labelledby="committee-title">
+        <div class="team-section-heading"><div><p class="eyebrow">CURRENT LEADERSHIP</p><h2 id="committee-title">Committee</h2></div><span id="committee-count" class="count">—</span></div>
+        <div id="committee-members" class="team-grid committee-grid"><p class="team-empty">Loading committee…</p></div>
       </section>
-      <div class="team-secondary-grid">
-        <section class="team-section" aria-labelledby="delegates-title">
-          <div class="team-section-heading"><div><p class="eyebrow">STUDENT REPRESENTATIVES</p><h2 id="delegates-title">Delegates</h2><p>Representing students across the club.</p></div><span id="delegates-count" class="count">—</span></div>
-          <div id="delegates-list" class="team-grid"><p class="team-empty">Loading delegates…</p></div>
-        </section>
-        <section class="team-section" aria-labelledby="trainers-title">
-          <div class="team-section-heading"><div><p class="eyebrow">LEARNING TEAM</p><h2 id="trainers-title">Trainers</h2><p>Helping members learn programming and robotics.</p></div><span id="trainers-count" class="count">—</span></div>
-          <div id="trainers-list" class="team-grid"><p class="team-empty">Loading trainers…</p></div>
-        </section>
-        <section class="team-section team-assistant-section" aria-labelledby="assistant-trainers-title">
-          <div class="team-section-heading"><div><p class="eyebrow">LEARNING TEAM</p><h2 id="assistant-trainers-title">Assistant trainers</h2><p>Supporting classes and hands-on sessions.</p></div><span id="assistant-trainers-count" class="count">—</span></div>
-          <div id="assistant-trainers-list" class="team-grid"><p class="team-empty">Loading assistant trainers…</p></div>
-        </section>
-      </div>
     </div>
     <div id="former-team-panel" class="team-view-panel" role="tabpanel" aria-labelledby="former-team-tab" hidden>
       <section class="team-section former-committees-section" aria-labelledby="former-committees-title">
-        <div class="team-section-heading"><div><p class="eyebrow">PAST LEADERSHIP</p><h2 id="former-committees-title">Former committees</h2><p>Choose a term to view its members.</p></div></div>
+        <div class="team-section-heading"><div><p class="eyebrow">PAST LEADERSHIP</p><h2 id="former-committees-title">Former Committee</h2><p>Choose a term to view its members.</p></div></div>
         <div id="former-committee-terms" class="former-term-selector" role="group" aria-label="Former committee terms"></div>
         <div class="former-active-heading"><h3 id="former-selected-term"></h3><span id="former-selected-count"></span></div>
         <div id="former-committees-list" class="team-grid former-term-grid"><p class="team-empty">Loading former committees…</p></div>
+      </section>
+    </div>
+    <div id="advisors-team-panel" class="team-view-panel" role="tabpanel" aria-labelledby="advisors-team-tab" hidden>
+      <section class="team-section" aria-labelledby="advisors-title">
+        <div class="team-section-heading"><div><p class="eyebrow">GUIDANCE & SUPPORT</p><h2 id="advisors-title">Advisors</h2></div><span id="advisors-count" class="count">—</span></div>
+        <div id="advisor-members" class="team-grid advisor-grid"><p class="team-empty">Loading advisors…</p></div>
       </section>
     </div>
     <p class="team-privacy-note">Only names, public roles, and portraits appear here. Student IDs and contact details stay private.</p>

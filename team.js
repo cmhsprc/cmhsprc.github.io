@@ -1,15 +1,14 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const config = window.CLUB_SUPABASE_CONFIG || {};
-const categories = [
-  { role: "Administrator (ADM)", list: "admins-list", count: "admins-count", empty: "Executive profiles will appear here when they are ready." },
-  { role: "Delegate", list: "delegates-list", count: "delegates-count", empty: "Delegate profiles will appear here when they are ready." },
-  { role: "Trainer (EM)", list: "trainers-list", count: "trainers-count", empty: "Trainer profiles will appear here when they are ready." },
-  { role: "Assistant Trainer (EM)", list: "assistant-trainers-list", count: "assistant-trainers-count", empty: "Assistant trainer profiles will appear here when they are ready." }
-];
-const rolePriority = ["President", "Vice President", "General Secretary", "Joint Secretary", "Treasurer", "Organizing Secretary", "IT Secretary", "Publicity Secretary", "Volunteer Coordinator", "Event Volunteer", "Technical Volunteer", "Content Volunteer", "Executive Member", "Delegate", "Trainer", "Assistant Trainer"];
-const roleRank = (position) => { const rank = rolePriority.indexOf(String(position || "")); return rank < 0 ? rolePriority.length : rank; };
-const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
+const rolePriority = ["President", "Vice President", "General Secretary", "Joint Secretary", "Treasurer", "Organizing Secretary", "IT Secretary", "Publicity Secretary", "Executive Member"];
+const roleRank = (position) => {
+  const rank = rolePriority.indexOf(String(position || ""));
+  return rank < 0 ? rolePriority.length : rank;
+};
+const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({
+  "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+})[char]);
 let formerCommitteeGroups = new Map();
 let teamClient = null;
 
@@ -28,8 +27,9 @@ function selectTeamTab(tabName) {
     tab.setAttribute("aria-selected", String(selected));
     tab.tabIndex = selected ? 0 : -1;
   });
-  document.querySelector("#current-team-panel").hidden = tabName !== "current";
-  document.querySelector("#former-team-panel").hidden = tabName !== "former";
+  ["committee", "former", "advisors"].forEach((panel) => {
+    document.querySelector("#" + panel + "-team-panel").hidden = panel !== tabName;
+  });
 }
 function renderFormerTerm(term) {
   const members = (formerCommitteeGroups.get(term) || []).slice().sort((a, b) =>
@@ -47,7 +47,7 @@ function renderFormerTerm(term) {
 document.querySelectorAll("[data-team-tab]").forEach((tab) => {
   tab.addEventListener("click", () => selectTeamTab(tab.dataset.teamTab));
 });
-selectTeamTab("current");
+selectTeamTab("committee");
 document.querySelector("#former-committee-terms").addEventListener("click", (event) => {
   const button = event.target.closest("[data-former-term]");
   if (!button) return;
@@ -61,57 +61,67 @@ document.querySelector("#former-committee-terms").addEventListener("click", (eve
 
 async function loadTeam() {
   if (!config.url || !config.publishableKey) throw new Error("Supabase settings are missing. Check admin/config.js.");
-  const client = createClient(config.url, config.publishableKey);
-  teamClient = client;
-  const { data, error } = await client.rpc("get_public_club_team");
-  if (error) throw new Error("Could not load the club team. Run the latest supabase/schema.sql. " + error.message);
-  const membersByRole = new Map(categories.map((category) => [category.role, []]));
-  (data || []).forEach((member) => {
-    if (membersByRole.has(member.team_role)) membersByRole.get(member.team_role).push({
-      name: member.full_name,
-      position: member.position_title,
-      photoUrl: member.photo_path ? client.storage.from("club-materials").getPublicUrl(member.photo_path).data.publicUrl : ""
-    });
-  });
-  categories.forEach((category) => {
-    const people = membersByRole.get(category.role).filter((member) => member.name).sort((a, b) => roleRank(a.position) - roleRank(b.position) || a.name.localeCompare(b.name));
-    document.querySelector("#" + category.count).textContent = String(people.length);
-    document.querySelector("#" + category.list).innerHTML = people.length
-      ? people.map((member) => renderPersonCard(member.name, member.position, member.photoUrl, category.role)).join("")
-      : '<p class="team-empty">' + escapeHtml(category.empty) + "</p>";
-  });
+  teamClient = createClient(config.url, config.publishableKey);
 
-  const { data: formerMembers, error: formerError } = await client.rpc("get_public_former_committees");
+  const { data: committee, error: committeeError } = await teamClient.rpc("get_public_club_team");
+  if (committeeError) throw new Error("Could not load the committee. Run the latest supabase/schema.sql. " + committeeError.message);
+  const members = (committee || []).filter((member) =>
+    member.team_role === "Committee" || member.team_role === "Administrator (ADM)"
+  ).sort((a, b) => roleRank(a.position_title) - roleRank(b.position_title) || a.full_name.localeCompare(b.full_name));
+  document.querySelector("#committee-count").textContent = String(members.length);
+  document.querySelector("#committee-members").innerHTML = members.length
+    ? members.map((member) => {
+        const photoUrl = member.photo_path ? teamClient.storage.from("club-materials").getPublicUrl(member.photo_path).data.publicUrl : "";
+        return renderPersonCard(member.full_name, member.position_title, photoUrl, "Committee member");
+      }).join("")
+    : '<p class="team-empty">Committee members will appear here when they are added.</p>';
+
+  const { data: formerMembers, error: formerError } = await teamClient.rpc("get_public_former_committees");
   if (formerError) {
     document.querySelector("#former-committee-terms").innerHTML = "";
     document.querySelector("#former-selected-term").textContent = "";
     document.querySelector("#former-selected-count").textContent = "";
     document.querySelector("#former-committees-list").innerHTML = '<p class="team-empty">Former committees are temporarily unavailable. Run the updated supabase/schema.sql to enable the archive.</p>';
+  } else {
+    formerCommitteeGroups = new Map();
+    (formerMembers || []).forEach((member) => {
+      if (!member.term_label || !member.full_name) return;
+      if (!formerCommitteeGroups.has(member.term_label)) formerCommitteeGroups.set(member.term_label, []);
+      formerCommitteeGroups.get(member.term_label).push(member);
+    });
+    const terms = [...formerCommitteeGroups.keys()].sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
+    document.querySelector("#former-committee-terms").innerHTML = terms.map((term, index) =>
+      '<button type="button" class="former-term-button' + (index === 0 ? " is-selected" : "") +
+      '" data-former-term="' + escapeHtml(term) + '" aria-pressed="' + (index === 0 ? "true" : "false") + '">' +
+      escapeHtml(term) + "</button>"
+    ).join("");
+    if (terms.length) renderFormerTerm(terms[0]);
+    else {
+      document.querySelector("#former-selected-term").textContent = "";
+      document.querySelector("#former-selected-count").textContent = "";
+      document.querySelector("#former-committees-list").innerHTML = '<p class="team-empty">Former committee records will appear here when they are added.</p>';
+    }
+  }
+
+  const { data: advisors, error: advisorError } = await teamClient.rpc("get_public_club_advisors");
+  if (advisorError) {
+    document.querySelector("#advisors-count").textContent = "—";
+    document.querySelector("#advisor-members").innerHTML = '<p class="team-empty">Advisors are temporarily unavailable. Run the updated supabase/schema.sql to enable this section.</p>';
     return;
   }
-  formerCommitteeGroups = new Map();
-  (formerMembers || []).forEach((member) => {
-    if (!member.term_label || !member.full_name) return;
-    if (!formerCommitteeGroups.has(member.term_label)) formerCommitteeGroups.set(member.term_label, []);
-    formerCommitteeGroups.get(member.term_label).push(member);
-  });
-  const terms = [...formerCommitteeGroups.keys()].sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
-  document.querySelector("#former-committee-terms").innerHTML = terms.map((term, index) =>
-    '<button type="button" class="former-term-button' + (index === 0 ? " is-selected" : "") +
-    '" data-former-term="' + escapeHtml(term) + '" aria-pressed="' + (index === 0 ? "true" : "false") + '">' +
-    escapeHtml(term) + "</button>"
-  ).join("");
-  if (terms.length) renderFormerTerm(terms[0]);
-  else {
-    document.querySelector("#former-selected-term").textContent = "";
-    document.querySelector("#former-selected-count").textContent = "";
-    document.querySelector("#former-committees-list").innerHTML = '<p class="team-empty">Former committee records will appear here when they are added.</p>';
-  }
+  const advisorList = (advisors || []).filter((advisor) => advisor.full_name);
+  document.querySelector("#advisors-count").textContent = String(advisorList.length);
+  document.querySelector("#advisor-members").innerHTML = advisorList.length
+    ? advisorList.map((advisor) => {
+        const photoUrl = advisor.photo_path ? teamClient.storage.from("club-materials").getPublicUrl(advisor.photo_path).data.publicUrl : "";
+        return renderPersonCard(advisor.full_name, advisor.position_title, photoUrl, "Club advisor");
+      }).join("")
+    : '<p class="team-empty">Advisor profiles will appear here when they are added.</p>';
 }
 loadTeam().catch((error) => {
-  document.querySelector("#team-status").textContent = error.message || "The club team could not load. Please refresh later.";
-  categories.forEach((category) => {
-    document.querySelector("#" + category.list).innerHTML = '<p class="team-empty">Team list temporarily unavailable.</p>';
-    document.querySelector("#" + category.count).textContent = "—";
-  });
+  document.querySelector("#team-status").textContent = error.message || "The club executives could not load. Please refresh later.";
+  document.querySelector("#committee-count").textContent = "—";
+  document.querySelector("#committee-members").innerHTML = '<p class="team-empty">The committee list is temporarily unavailable.</p>';
+  document.querySelector("#former-committees-list").innerHTML = '<p class="team-empty">Former committee list is temporarily unavailable.</p>';
+  document.querySelector("#advisor-members").innerHTML = '<p class="team-empty">Advisor list is temporarily unavailable.</p>';
 });
