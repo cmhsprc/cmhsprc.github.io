@@ -12,11 +12,12 @@
   <link rel="stylesheet" href="./site-nav.css">
   <script src="./admin/config.js"></script>
   <link rel="stylesheet" href="./responsive.css">
+  <script src="./site-nav.js" defer></script>
 </head>
 <body>
   <header class="site-header">
     <a class="brand" href="./" aria-label="Club home"><img src="./assets/brand/cmhs-prc-profile.svg" alt="Club logo"><span>Cumilla Modern High School<br><strong>Programming And Robotics Club</strong></span></a>
-    <nav><a href="./">Home</a><a href="./about.html">About Us</a><a href="./events.html">Events</a><a href="./blog.html">Blog</a><a href="./team.html" aria-current="page">Executives</a><a href="./join.html">Join Us</a><a class="site-admin-link" href="./admin/">Admin</a></nav>
+    <button class="site-nav-toggle" type="button" aria-label="Open navigation" aria-controls="site-navigation" aria-expanded="false"><span></span><span></span><span></span></button><nav id="site-navigation" aria-label="Main navigation"><a href="./">Home</a><a href="./about.html">About Us</a><a href="./events.html">Events</a><a href="./blog.html">Blog</a><a href="./team.html" aria-current="page">Executives</a><a href="./join.html">Join Us</a><a class="site-admin-link" href="./admin/">Admin</a></nav>
   </header>
   <main class="page-wrap team-page">
     <section class="hero team-hero">

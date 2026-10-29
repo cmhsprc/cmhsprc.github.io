@@ -61,7 +61,7 @@ export function bindSeeMore(container) {
 }
 
 export function pageNav(active) {
-  return '<header class="site-header"><a class="brand" href="./" aria-label="Club home"><img src="./assets/brand/cmhs-prc-profile.svg" alt="Club logo"><span>Cumilla Modern High School<br><strong>Programming And Robotics Club</strong></span></a><nav aria-label="Main navigation">' +
+  return '<header class="site-header"><a class="brand" href="./" aria-label="Club home"><img src="./assets/brand/cmhs-prc-profile.svg" alt="Club logo"><span>Cumilla Modern High School<br><strong>Programming And Robotics Club</strong></span></a><button class="site-nav-toggle" type="button" aria-label="Open navigation" aria-controls="site-navigation" aria-expanded="false"><span></span><span></span><span></span></button><nav id="site-navigation" aria-label="Main navigation">' +
     [['home', './', 'Home'], ['about', './about.html', 'About Us'], ['events', './events.html', 'Events'], ['blog', './blog.html', 'Blog'], ['team', './team.html', 'Executives'], ['join', './join.html', 'Join Us']]
       .map(([key, href, label]) => '<a href="' + href + '"' + (key === active ? ' aria-current="page"' : '') + '>' + label + '</a>').join("") +
     '<a class="site-admin-link" href="./admin/">Admin</a></nav></header>';
