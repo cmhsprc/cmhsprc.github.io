@@ -21,3 +21,19 @@
 .blog-section-heading .count{min-width:0;height:auto;padding:0;border:0;background:none}
 .blog-load-sentinel{height:1px}
 @media(max-width:560px){.home-about .site-section-heading{align-items:center}.home-about .site-section-heading>a{white-space:normal}}
+
+/* Center page structure throughout the public club website. */
+.site-hero-inner{margin-left:auto;margin-right:auto;text-align:center}
+.site-hero p{margin-left:auto;margin-right:auto}
+.site-actions{justify-content:center}
+.site-page-hero{text-align:center}
+.site-page-hero p{margin-left:auto;margin-right:auto}
+.site-section-heading{flex-direction:column;align-items:center;justify-content:center;text-align:center}
+.site-section-heading>a{white-space:normal;margin-top:3px}
+.site-grid>.site-card{text-align:center}
+.site-grid>.site-card .site-meta{justify-content:center}
+.site-post{width:100%;margin-left:auto;margin-right:auto;text-align:left}
+.site-callout{flex-direction:column;justify-content:center;text-align:center}
+.site-callout>div{max-width:760px}
+.site-section>.site-prose{margin-left:auto;margin-right:auto;text-align:center}
+.site-event-copy{text-align:center}

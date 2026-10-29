@@ -42,3 +42,8 @@
 
 .team-hero{text-align:center}
 .team-hero>p:not(.eyebrow){margin-left:auto;margin-right:auto;max-width:680px}
+
+.team-tabs{margin-left:auto;margin-right:auto;justify-content:center}
+.team-section-heading{flex-direction:column;align-items:center;text-align:center}
+.team-section-heading .count{height:auto;min-height:30px}
+.former-active-heading{justify-content:center;flex-wrap:wrap;text-align:center}
