@@ -253,7 +253,7 @@ function showLogin() {
 }
 function initialize() {
   if (!CONFIG.url || !CONFIG.publishableKey) {
-    $("#config-hint").textContent = "Setup needed: add your Supabase project URL and publishable key to admin/config.js.";
+    setLoginError("Sign-in is unavailable until the database settings are added in admin/config.js.");
     $("#login-button").disabled = true; return;
   }
   try { state.client = createClient(CONFIG.url, CONFIG.publishableKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } }); }

@@ -8,14 +8,13 @@
 <body>
   <div class="login-wrap" id="login-view"><section class="login-card">
     <div class="brand-lockup"><img class="club-brand-icon" src="../assets/brand/cmhs-prc-profile.svg" alt="CMHS PRC logo"><div><strong>Club records</strong><span>Administrator access</span></div></div>
-    <div class="login-copy"><p class="eyebrow">PRIVATE ADMIN AREA</p><h1>Sign in to continue</h1><p>Student records are available only after an administrator signs in.</p></div>
+    <div class="login-copy"><h1>Sign in to continue</h1></div>
     <form id="login-form" class="stack-form"><label>Email address<input id="login-email" type="email" autocomplete="username" required></label><label>Password<input id="login-password" type="password" autocomplete="current-password" required></label><button class="button primary full" type="submit" id="login-button">Sign in</button></form>
-    <p class="inline-error" id="login-error" role="alert" hidden></p><p class="login-footnote" id="config-hint">Database connection is not configured yet. See the setup guide included with this site.</p><p class="login-footnote">Do not use this page to share student data publicly.</p>
+    <p class="inline-error" id="login-error" role="alert" hidden></p>
   </section></div>
   <div class="app-shell" id="admin-app" hidden>
     <aside class="sidebar">
       <div class="brand-lockup sidebar-brand"><img class="club-brand-icon" src="../assets/brand/cmhs-prc-profile.svg" alt="CMHS PRC logo"><div><strong>Club records</strong><span>Student administration</span></div></div>
-      <div class="side-caption">WORKSPACE</div>
       <nav class="side-nav" aria-label="Main navigation">
         <button class="nav-item active" type="button" data-page="overview"><span class="nav-icon">◫</span> Overview</button>
         <button class="nav-item" type="button" data-page="students"><span class="nav-icon">◎</span> Students</button>
@@ -30,13 +29,13 @@
         <button class="nav-item" id="activity-nav-item" type="button" data-page="activity" hidden><span class="nav-icon">◷</span> Activity log</button>
         <button class="nav-item" type="button" data-page="backup"><span class="nav-icon">⇅</span> Import & backup</button>
       </nav>
-      <div class="sidebar-bottom"><div class="privacy-note"><span class="privacy-dot"></span><div><strong>Private records</strong><small>Admin sign-in required</small></div></div><button class="nav-item signout-button" id="signout-button" type="button"><span class="nav-icon">↪</span> Sign out</button></div>
+      <div class="sidebar-bottom"><button class="nav-item signout-button" id="signout-button" type="button"><span class="nav-icon">↪</span> Sign out</button></div>
     </aside>
     <main class="main-area">
-      <header class="topbar"><div class="mobile-brand"><img class="club-brand-icon" src="../assets/brand/cmhs-prc-profile.svg" alt="CMHS PRC logo"><strong>Club records</strong></div><div class="topbar-title"><p class="eyebrow">STUDENT DATABASE</p><h1 id="page-title">Overview</h1></div><div class="topbar-right"><span class="connection-pill"><i></i> Connected</span><span class="user-email" id="user-email"></span></div></header>
+      <header class="topbar"><div class="mobile-brand"><img class="club-brand-icon" src="../assets/brand/cmhs-prc-profile.svg" alt="CMHS PRC logo"><strong>Club records</strong></div><div class="topbar-title"><h1 id="page-title">Overview</h1></div><div class="topbar-right"><span class="connection-pill"><i></i> Connected</span><span class="user-email" id="user-email"></span></div></header>
       <div class="page-content">
         <section class="page-section" data-section="overview">
-          <div class="welcome-row"><div><h2>Your club at a glance</h2><p>Student counts and record checks from the private database.</p></div><button class="button primary" type="button" data-open-add>＋ Add student</button></div>
+          <div class="welcome-row"><div><h2>Your club at a glance</h2></div><button class="button primary" type="button" data-open-add>＋ Add student</button></div>
           <div class="stat-grid">
             <article class="stat-card"><span class="stat-label">Students</span><strong id="stat-students">—</strong><span class="stat-foot">Records in database</span><span class="stat-icon violet">◎</span></article>
             <article class="stat-card"><span class="stat-label">Batches</span><strong id="stat-batches">—</strong><span class="stat-foot">Groups you created</span><span class="stat-icon blue">▦</span></article>
@@ -47,9 +46,8 @@
             <article class="panel"><div class="panel-heading"><div><h3>Students by batch</h3><p>Counts update from your batch rosters.</p></div><button class="text-button" type="button" data-go="students">Open directory →</button></div><div id="batch-breakdown" class="bar-list"></div></article>
             <article class="panel"><div class="panel-heading"><div><h3>Record check</h3><p>Fields that may need review.</p></div><button class="text-button" type="button" data-go="data">Review data →</button></div><div id="overview-quality" class="quality-summary"></div></article>
           </div>
-          <div class="dashboard-grid lower-grid">
+          <div class="dashboard-grid lower-grid dashboard-single">
             <article class="panel"><div class="panel-heading"><div><h3>Recent attendance</h3><p>Latest club meeting records.</p></div><button class="text-button" type="button" data-go="attendance">Open attendance →</button></div><div id="recent-sessions" class="session-list"></div></article>
-            <article class="panel privacy-panel"><div class="privacy-panel-icon">⌑</div><div><h3>Keep student data private</h3><p>Only commit website code to GitHub. Never add student JSON, exported records, passwords, or a Supabase service-role key to the repository.</p></div></article>
           </div>
         </section>
         <section class="page-section" data-section="students" hidden>
@@ -158,7 +156,7 @@
         </section>
         <section class="page-section" data-section="plan" hidden>
           <div class="section-intro"><div><h2>Admin plan</h2><p>A shared working note for club tasks and school-day coordination. Every signed-in administrator can edit it.</p></div></div>
-          <article class="panel admin-plan-panel"><div class="panel-heading"><div><h3>Shared plan</h3><p id="admin-plan-updated">Loading shared plan…</p></div><button class="button primary" id="save-admin-plan" type="button">Save plan</button></div><label class="sr-only" for="admin-plan-content">Shared admin plan</label><textarea id="admin-plan-content" class="admin-plan-editor" placeholder="Write your shared plan here. Add tasks, meeting notes, or reminders."></textarea><p class="helper-text">Avoid putting passwords or private student details in this shared note.</p><p class="inline-error" id="admin-plan-error" role="alert" hidden></p></article>
+          <article class="panel admin-plan-panel"><div class="panel-heading"><div><h3>Shared plan</h3><p id="admin-plan-updated">Loading shared plan…</p></div><button class="button primary" id="save-admin-plan" type="button">Save plan</button></div><label class="sr-only" for="admin-plan-content">Shared admin plan</label><textarea id="admin-plan-content" class="admin-plan-editor" placeholder="Write your shared plan here. Add tasks, meeting notes, or reminders."></textarea><p class="inline-error" id="admin-plan-error" role="alert" hidden></p></article>
         </section>
         <section class="page-section" data-section="activity" hidden>
           <div class="section-intro"><div><h2>Admin activity history</h2><p>ADM001 only. Shows when student records, posts, website pages, and events were created, edited, or deleted. Sensitive field values are not copied into this log.</p></div><button class="button outline" id="refresh-activity" type="button">Refresh</button></div>
@@ -170,7 +168,6 @@
             <article class="panel import-panel"><div class="backup-icon blue">⇧</div><h3>Import student JSON</h3><p>Select the existing students.json file. The preview checks IDs and fields before anything is saved.</p><input id="json-file" class="file-input" type="file" accept=".json,application/json"><label class="button outline file-button" for="json-file">Choose JSON file</label><div id="import-preview" class="import-preview" hidden></div><button class="button primary full" id="apply-import" type="button" disabled>Import records</button><p class="helper-text">Existing student values are kept; the import fills only blank fields. Club status and area-of-interest fields are not imported.</p></article>
             <article class="panel backup-panel"><div class="backup-icon green">⇩</div><h3>Encrypted backup</h3><p>Download a passphrase-protected backup of student and attendance data to your own device.</p><button class="button primary full" id="download-backup" type="button">Create encrypted backup</button><div class="divider"></div><label class="button outline file-button" for="backup-file">Choose backup to restore</label><input id="backup-file" class="file-input" type="file" accept=".clubbackup,.json,application/json"><p class="helper-text">Restore merges records by ID. It does not erase records absent from the backup. Keep the passphrase somewhere safe.</p></article>
           </div>
-          <article class="panel privacy-panel full-width-note"><div class="privacy-panel-icon">⌑</div><div><h3>Free plan reminder</h3><p>Supabase Free may pause a project after a week without activity and does not provide automatic database backups. Download encrypted backups regularly and keep the file outside GitHub.</p></div></article>
         </section>
       </div>
     </main>
